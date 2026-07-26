@@ -1,0 +1,129 @@
+# =============================================================================
+# OpsConsole - GitLab CI
+# -----------------------------------------------------------------------------
+# Stages: test -> build -> deploy
+# Deploy targets: Helm (imperative) OR ArgoCD 2.12+ (GitOps, declarative sync).
+#
+# Required CI variables (set in GitLab project / group settings):
+#   CI_REGISTRY, CI_REGISTRY_USER, CI_REGISTRY_PASSWORD  (auto-provided)
+#   OPS_JWT_SECRET, OPS_DATABASE_URL, OPS_GITLAB_TOKEN    (prod deploy)
+#   OPS_GITLAB_BASE_URL                                   (optional)
+#   ARGOCD_TOKEN                                          (only for argocd-sync)
+#
+# Spec lock: Go 1.22 / React 18.3.1 / Helm 3.15+ / ArgoCD 2.12+ / K8s 1.31
+# NOTE: pipeline is not executed in this sandbox; syntax/structure only.
+# =============================================================================
+
+stages:
+  - test
+  - build
+  - deploy
+
+variables:
+  GO_VERSION: "1.22"
+  NODE_VERSION: "20"
+  BACKEND_IMAGE: "$CI_REGISTRY/opsconsole/backend"
+  FRONTEND_IMAGE: "$CI_REGISTRY/opsconsole/frontend"
+  HELM_IMAGE: "registry.gitlab.com/gitlab-org/cluster-integration/helm-install-image:helm-3.15.4-kube-1.31"
+
+# ---------------- TEST ----------------
+backend-test:
+  stage: test
+  image: golang:1.22
+  script:
+    - cd backend
+    - go vet ./...
+    - go build -o /tmp/opsconsole-server ./cmd/api-server
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+frontend-test:
+  stage: test
+  image: node:20-alpine
+  script:
+    - cd frontend
+    - npm ci
+    - npm run build
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# ---------------- BUILD ----------------
+backend-build:
+  stage: build
+  image: docker:24.0
+  services:
+    - docker:24.0-dind
+  variables:
+    DOCKER_DRIVER: overlay2
+  script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - docker build -f backend/Dockerfile -t "$BACKEND_IMAGE:$CI_COMMIT_SHA" ./backend
+    - docker push "$BACKEND_IMAGE:$CI_COMMIT_SHA"
+    - |
+      if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
+        docker tag "$BACKEND_IMAGE:$CI_COMMIT_SHA" "$BACKEND_IMAGE:latest"
+        docker push "$BACKEND_IMAGE:latest"
+      fi
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+frontend-build:
+  stage: build
+  image: docker:24.0
+  services:
+    - docker:24.0-dind
+  variables:
+    DOCKER_DRIVER: overlay2
+  script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - docker build -f frontend/Dockerfile -t "$FRONTEND_IMAGE:$CI_COMMIT_SHA" ./frontend
+    - docker push "$FRONTEND_IMAGE:$CI_COMMIT_SHA"
+    - |
+      if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
+        docker tag "$FRONTEND_IMAGE:$CI_COMMIT_SHA" "$FRONTEND_IMAGE:latest"
+        docker push "$FRONTEND_IMAGE:latest"
+      fi
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# ---------------- DEPLOY ----------------
+# Option A: Helm (imperative). Uses GitLab environment + cluster context.
+helm-deploy:
+  stage: deploy
+  image: $HELM_IMAGE
+  environment:
+    name: production
+  script:
+    - helm repo update
+    - helm upgrade --install opsconsole ./chart
+        --namespace opsconsole --create-namespace
+        --set backend.image.tag="$CI_COMMIT_SHA"
+        --set frontend.image.tag="$CI_COMMIT_SHA"
+        --set backend.existingSecret=opsconsole-backend-prod
+        --set backend.env.OPS_GITLAB_BASE_URL="$OPS_GITLAB_BASE_URL"
+        --wait --timeout 300s
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      when: manual
+
+# Option B: ArgoCD 2.12+ (GitOps). The pipeline only triggers a sync;
+# ArgoCD continuously reconciles the cluster to the declared chart state.
+argocd-sync:
+  stage: deploy
+  image: "alpine/helm:3.15.4"
+  environment:
+    name: production
+  script:
+    - |
+      # ArgoCD 2.12+ supports app-of-apps and parameterized sync waves.
+      # Requires the argocd CLI authenticated via ARGOCD_TOKEN (CI variable).
+      if command -v argocd >/dev/null 2>&1; then
+        argocd app sync opsconsole --prune --timeout 300
+      else
+        echo "argocd CLI not available in this job; rely on ArgoCD auto-sync (GitOps)."
+      fi
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      when: manual

@@ -1,0 +1,36 @@
+{
+  "name": "opsconsole-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "企业多团队统一运维控制台（OpsConsole）前端 MVP",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview --port 4173"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.51.0",
+    "axios": "^1.7.0",
+    "@tanstack/react-table": "^8.20.0",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
+    "antd": "^5.21.0",
+    "echarts": "^5.5.0",
+    "lucide-react": "0.439.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-router-dom": "^6.26.0",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react-swc": "^3.7.0",
+    "dayjs": "^1.11.13",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.0"
+  }
+}

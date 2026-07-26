@@ -1,0 +1,161 @@
+(node:21544) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+npm warn cleanup Failed to remove some directories [
+npm warn cleanup   [
+npm warn cleanup     'C:\\Users\\Eversec\\WorkBuddy\\2026-07-22-23-53-33\\frontend\\node_modules\\.monaco-editor-PWJy4xng',
+npm warn cleanup     Error: [safe-delete][SAFE_DELETE_BULK_CONFIRM_REQUIRED] {"count":1501,"threshold":50,"scope":"turn","targets":["C:\\Users\\Eversec\\WorkBuddy\\2026-07-22-23-53-33\\frontend\\node_modules\\.monaco-editor-PWJy4xng"],"targetCount":1}
+npm warn cleanup         at checkBulkDeleteGuard (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:222:19)
+npm warn cleanup         at tryTrash (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:546:5)
+npm warn cleanup         at tryRm (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:722:5)
+npm warn cleanup         at wrappedPromisesRm (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:766:15)
+npm warn cleanup         at _rm (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:1352:25)
+npm warn cleanup         at [removeTrash] (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:1355:21)
+npm warn cleanup         at [reifyPackages] (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:349:29)
+npm warn cleanup         at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+npm warn cleanup         at async Arborist.reify (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:149:5)
+npm warn cleanup         at async Install.exec (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\lib\commands\install.js:150:5)
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     'C:\\Users\\Eversec\\WorkBuddy\\2026-07-22-23-53-33\\frontend\\node_modules\\.json5-HNo25fyg',
+npm warn cleanup     Error: [safe-delete][SAFE_DELETE_BULK_CONFIRM_REQUIRED] {"count":68,"threshold":50,"scope":"turn","targets":["C:\\Users\\Eversec\\WorkBuddy\\2026-07-22-23-53-33\\frontend\\node_modules\\.json5-HNo25fyg"],"targetCount":1}
+npm warn cleanup         at checkBulkDeleteGuard (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:222:19)
+npm warn cleanup         at tryTrash (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:546:5)
+npm warn cleanup         at tryRm (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:722:5)
+npm warn cleanup         at wrappedPromisesRm (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:766:15)
+npm warn cleanup         at _rm (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:1352:25)
+npm warn cleanup         at [removeTrash] (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:1355:21)
+npm warn cleanup         at [reifyPackages] (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:349:29)
+npm warn cleanup         at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+npm warn cleanup         at async Arborist.reify (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:149:5)
+npm warn cleanup         at async Install.exec (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\lib\commands\install.js:150:5)
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     'C:\\Users\\Eversec\\WorkBuddy\\2026-07-22-23-53-33\\frontend\\node_modules\\.nanoid-ByuJIyRQ',
+npm warn cleanup     Error: [safe-delete][SAFE_DELETE_BULK_CONFIRM_REQUIRED] {"count":73,"threshold":50,"scope":"turn","targets":["C:\\Users\\Eversec\\WorkBuddy\\2026-07-22-23-53-33\\frontend\\node_modules\\.nanoid-ByuJIyRQ"],"targetCount":1}
+npm warn cleanup         at checkBulkDeleteGuard (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:222:19)
+npm warn cleanup         at tryTrash (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:546:5)
+npm warn cleanup         at tryRm (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:722:5)
+npm warn cleanup         at wrappedPromisesRm (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:766:15)
+npm warn cleanup         at _rm (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:1352:25)
+npm warn cleanup         at [removeTrash] (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:1355:21)
+npm warn cleanup         at [reifyPackages] (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:349:29)
+npm warn cleanup         at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+npm warn cleanup         at async Arborist.reify (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:149:5)
+npm warn cleanup         at async Install.exec (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\lib\commands\install.js:150:5)
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     'C:\\Users\\Eversec\\WorkBuddy\\2026-07-22-23-53-33\\frontend\\node_modules\\.react-QkB0jgCb',
+npm warn cleanup     Error: [safe-delete][SAFE_DELETE_BULK_CONFIRM_REQUIRED] {"count":68,"threshold":50,"scope":"turn","targets":["C:\\Users\\Eversec\\WorkBuddy\\2026-07-22-23-53-33\\frontend\\node_modules\\.react-QkB0jgCb"],"targetCount":1}
+npm warn cleanup         at checkBulkDeleteGuard (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:222:19)
+npm warn cleanup         at tryTrash (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:546:5)
+npm warn cleanup         at tryRm (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:722:5)
+npm warn cleanup         at wrappedPromisesRm (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:766:15)
+npm warn cleanup         at _rm (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:1352:25)
+npm warn cleanup         at [removeTrash] (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:1355:21)
+npm warn cleanup         at [reifyPackages] (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:349:29)
+npm warn cleanup         at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+npm warn cleanup         at async Arborist.reify (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:149:5)
+npm warn cleanup         at async Install.exec (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\lib\commands\install.js:150:5)
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     'C:\\Users\\Eversec\\WorkBuddy\\2026-07-22-23-53-33\\frontend\\node_modules\\.react-dom-fAGin4IK',
+npm warn cleanup     Error: [safe-delete][SAFE_DELETE_BULK_CONFIRM_REQUIRED] {"count":80,"threshold":50,"scope":"turn","targets":["C:\\Users\\Eversec\\WorkBuddy\\2026-07-22-23-53-33\\frontend\\node_modules\\.react-dom-fAGin4IK"],"targetCount":1}
+npm warn cleanup         at checkBulkDeleteGuard (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:222:19)
+npm warn cleanup         at tryTrash (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:546:5)
+npm warn cleanup         at tryRm (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:722:5)
+npm warn cleanup         at wrappedPromisesRm (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:766:15)
+npm warn cleanup         at _rm (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:1352:25)
+npm warn cleanup         at [removeTrash] (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:1355:21)
+npm warn cleanup         at [reifyPackages] (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:349:29)
+npm warn cleanup         at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+npm warn cleanup         at async Arborist.reify (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:149:5)
+npm warn cleanup         at async Install.exec (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\lib\commands\install.js:150:5)
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     'C:\\Users\\Eversec\\WorkBuddy\\2026-07-22-23-53-33\\frontend\\node_modules\\.typescript-lmix1dsR',
+npm warn cleanup     Error: [safe-delete][SAFE_DELETE_BULK_CONFIRM_REQUIRED] {"count":180,"threshold":50,"scope":"turn","targets":["C:\\Users\\Eversec\\WorkBuddy\\2026-07-22-23-53-33\\frontend\\node_modules\\.typescript-lmix1dsR"],"targetCount":1}
+npm warn cleanup         at checkBulkDeleteGuard (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:222:19)
+npm warn cleanup         at tryTrash (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:546:5)
+npm warn cleanup         at tryRm (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:722:5)
+npm warn cleanup         at wrappedPromisesRm (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:766:15)
+npm warn cleanup         at _rm (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:1352:25)
+npm warn cleanup         at [removeTrash] (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:1355:21)
+npm warn cleanup         at [reifyPackages] (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:349:29)
+npm warn cleanup         at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+npm warn cleanup         at async Arborist.reify (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:149:5)
+npm warn cleanup         at async Install.exec (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\lib\commands\install.js:150:5)
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     'C:\\Users\\Eversec\\WorkBuddy\\2026-07-22-23-53-33\\frontend\\node_modules\\.semver-7yhPL0kc',
+npm warn cleanup     Error: [safe-delete][SAFE_DELETE_BULK_CONFIRM_REQUIRED] {"count":54,"threshold":50,"scope":"turn","targets":["C:\\Users\\Eversec\\WorkBuddy\\2026-07-22-23-53-33\\frontend\\node_modules\\.semver-7yhPL0kc"],"targetCount":1}
+npm warn cleanup         at checkBulkDeleteGuard (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:222:19)
+npm warn cleanup         at tryTrash (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:546:5)
+npm warn cleanup         at tryRm (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:722:5)
+npm warn cleanup         at wrappedPromisesRm (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:766:15)
+npm warn cleanup         at _rm (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:1352:25)
+npm warn cleanup         at [removeTrash] (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:1355:21)
+npm warn cleanup         at [reifyPackages] (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:349:29)
+npm warn cleanup         at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+npm warn cleanup         at async Arborist.reify (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:149:5)
+npm warn cleanup         at async Install.exec (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\lib\commands\install.js:150:5)
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     'C:\\Users\\Eversec\\WorkBuddy\\2026-07-22-23-53-33\\frontend\\node_modules\\.update-browserslist-db-s7SNcS87',
+npm warn cleanup     Error: [safe-delete][SAFE_DELETE_BULK_CONFIRM_REQUIRED] {"count":56,"threshold":50,"scope":"turn","targets":["C:\\Users\\Eversec\\WorkBuddy\\2026-07-22-23-53-33\\frontend\\node_modules\\.update-browserslist-db-s7SNcS87"],"targetCount":1}
+npm warn cleanup         at checkBulkDeleteGuard (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:222:19)
+npm warn cleanup         at tryTrash (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:546:5)
+npm warn cleanup         at tryRm (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:722:5)
+npm warn cleanup         at wrappedPromisesRm (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:766:15)
+npm warn cleanup         at _rm (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:1352:25)
+npm warn cleanup         at [removeTrash] (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:1355:21)
+npm warn cleanup         at [reifyPackages] (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:349:29)
+npm warn cleanup         at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+npm warn cleanup         at async Arborist.reify (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:149:5)
+npm warn cleanup         at async Install.exec (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\lib\commands\install.js:150:5)
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     'C:\\Users\\Eversec\\WorkBuddy\\2026-07-22-23-53-33\\frontend\\node_modules\\.vite-Ox4Cywrp',
+npm warn cleanup     Error: [safe-delete][SAFE_DELETE_BULK_CONFIRM_REQUIRED] {"count":79,"threshold":50,"scope":"turn","targets":["C:\\Users\\Eversec\\WorkBuddy\\2026-07-22-23-53-33\\frontend\\node_modules\\.vite-Ox4Cywrp"],"targetCount":1}
+npm warn cleanup         at checkBulkDeleteGuard (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:222:19)
+npm warn cleanup         at tryTrash (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:546:5)
+npm warn cleanup         at tryRm (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:722:5)
+npm warn cleanup         at wrappedPromisesRm (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:766:15)
+npm warn cleanup         at _rm (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:1352:25)
+npm warn cleanup         at [removeTrash] (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:1355:21)
+npm warn cleanup         at [reifyPackages] (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:349:29)
+npm warn cleanup         at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+npm warn cleanup         at async Arborist.reify (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:149:5)
+npm warn cleanup         at async Install.exec (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\lib\commands\install.js:150:5)
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     'C:\\Users\\Eversec\\WorkBuddy\\2026-07-22-23-53-33\\frontend\\node_modules\\.rollup-9lZUdvSp',
+npm warn cleanup     Error: [safe-delete][SAFE_DELETE_BULK_CONFIRM_REQUIRED] {"count":75,"threshold":50,"scope":"turn","targets":["C:\\Users\\Eversec\\WorkBuddy\\2026-07-22-23-53-33\\frontend\\node_modules\\.rollup-9lZUdvSp"],"targetCount":1}
+npm warn cleanup         at checkBulkDeleteGuard (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:222:19)
+npm warn cleanup         at tryTrash (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:546:5)
+npm warn cleanup         at tryRm (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:722:5)
+npm warn cleanup         at wrappedPromisesRm (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:766:15)
+npm warn cleanup         at _rm (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:1352:25)
+npm warn cleanup         at [removeTrash] (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:1355:21)
+npm warn cleanup         at [reifyPackages] (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:349:29)
+npm warn cleanup         at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+npm warn cleanup         at async Arborist.reify (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:149:5)
+npm warn cleanup         at async Install.exec (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\lib\commands\install.js:150:5)
+npm warn cleanup   ],
+npm warn cleanup   [
+npm warn cleanup     'C:\\Users\\Eversec\\WorkBuddy\\2026-07-22-23-53-33\\frontend\\node_modules\\@babel\\.parser-vMlkjt7y',
+npm warn cleanup     Error: [safe-delete][SAFE_DELETE_BULK_CONFIRM_REQUIRED] {"count":56,"threshold":50,"scope":"turn","targets":["C:\\Users\\Eversec\\WorkBuddy\\2026-07-22-23-53-33\\frontend\\node_modules\\@babel\\.parser-vMlkjt7y"],"targetCount":1}
+npm warn cleanup         at checkBulkDeleteGuard (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:222:19)
+npm warn cleanup         at tryTrash (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:546:5)
+npm warn cleanup         at tryRm (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:722:5)
+npm warn cleanup         at wrappedPromisesRm (C:\Program Files\WorkBuddy\resources\app.asar.unpacked\cli\vendor\shim\genie-safe-delete.cjs:766:15)
+npm warn cleanup         at _rm (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:1352:25)
+npm warn cleanup         at [removeTrash] (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:1355:21)
+npm warn cleanup         at [reifyPackages] (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:349:29)
+npm warn cleanup         at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+npm warn cleanup         at async Arborist.reify (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\reify.js:149:5)
+npm warn cleanup         at async Install.exec (C:\Users\Eversec\.workbuddy\binaries\node\versions\22.22.2\node_modules\npm\lib\commands\install.js:150:5)
+npm warn cleanup   ]
+npm warn cleanup ]
+
+removed 1 package, and changed 15 packages in 28s
+REACT2_EXIT=0

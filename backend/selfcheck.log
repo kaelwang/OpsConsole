@@ -1,0 +1,7 @@
+go version go1.26.5 windows/amd64
+=== BUILD ===
+BUILD_EXIT=0
+=== VET ===
+VET_EXIT=0
+=== GOFMT ===
+GOFMT_DONE

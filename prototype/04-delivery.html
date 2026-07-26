@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<!-- 统一运维控制台 · 高保真原型 · 部署 · CI/CD 域（配置化部署 + 流水线视图）
+     图标: Lucide 风格内联 SVG 占位；配色: 全部 Design Token 变量。无 emoji / 无紫粉渐变。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>部署 · CI/CD · 统一运维控制台</title>
+<style>
+:root{--bg:#0B0E14;--surface:#121620;--surface-2:#1A1F2B;--surface-3:#232A38;--fg:#E6E9EF;--fg-2:#B4BACD;--muted:#7A8294;--meta:#565E6E;--accent:#1C8FE6;--accent-hover:#3AA0F0;--accent-active:#1577C2;--accent-on:#fff;--success:#2EA043;--warn:#E8A33D;--danger:#F85149;--border:rgba(255,255,255,.08);--border-soft:rgba(255,255,255,.05);--border-strong:rgba(255,255,255,.12);--font:"Geist","Inter","Noto Sans SC",system-ui,sans-serif;--mono:"Geist Mono","JetBrains Mono",ui-monospace,Menlo,monospace;--r-sm:6px;--r-md:8px;--r-lg:12px;--r-pill:9999px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);font-size:14px;line-height:1.5;background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased}
+.ico{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ico-sm{width:16px;height:16px}
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:14px 10px;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh}
+.brand{display:flex;align-items:center;gap:9px;padding:6px 8px 14px;font-weight:600}
+.brand .logo{width:28px;height:28px;border-radius:var(--r-sm);background:linear-gradient(180deg,var(--accent-hover),var(--accent-active));display:grid;place-items:center;color:#fff}
+.nav-group{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--meta);padding:12px 8px 4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r-sm);color:var(--fg-2);text-decoration:none;font-size:14px;cursor:pointer}
+.nav-item:hover{background:var(--surface-2);color:var(--fg)}
+.nav-item.active{background:var(--surface-2);color:var(--fg);box-shadow:inset 2px 0 0 var(--accent)}
+.main{display:flex;flex-direction:column;min-width:0}
+.topbar{display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(11,14,20,.82);backdrop-filter:blur(8px);z-index:5}
+.scope{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);font-size:13px;color:var(--fg-2)}
+.scope strong{color:var(--fg);font-weight:500}
+.spacer{flex:1}
+.icon-btn{width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--fg-2);cursor:pointer}
+.icon-btn:hover{color:var(--fg);border-color:var(--border-strong)}
+.avatar{width:32px;height:32px;border-radius:var(--r-pill);background:var(--surface-3);display:grid;place-items:center;font-size:12px;color:var(--fg-2);border:1px solid var(--border)}
+.content{padding:24px 20px 64px;max-width:1340px;width:100%}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px;gap:16px}
+.page-title{font-size:24px;font-weight:600;letter-spacing:-.02em}
+.page-sub{color:var(--muted);font-size:13px;margin-top:3px}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface);color:var(--fg);font-size:13px;font-family:var(--font);cursor:pointer}
+.btn:hover{border-color:var(--border-strong);background:var(--surface-2)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:var(--accent-on)}
+.btn-primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.seg{display:inline-flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-pill);padding:3px}
+.seg button{background:none;border:none;color:var(--muted);padding:5px 13px;border-radius:var(--r-pill);font-size:13px;cursor:pointer;font-family:var(--font)}
+.seg button.on{background:var(--surface-3);color:var(--fg)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px}
+.section{margin-top:24px}
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.section-title{font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--fg-2)}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:2px 9px;border-radius:var(--r-pill);border:1px solid var(--border);color:var(--fg-2)}
+.chip.ok{color:#7ee2a8;background:rgba(46,160,67,.13);border-color:transparent}
+.chip.warn{color:#f0c074;background:rgba(232,163,61,.13);border-color:transparent}
+.chip.danger{color:#ff9b95;background:rgba(248,81,73,.15);border-color:transparent}
+.chip.info{color:#8ecbff;background:rgba(28,143,230,.14);border-color:transparent}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:9px 12px;border-bottom:1px solid var(--border)}
+td{padding:11px 12px;border-bottom:1px solid var(--border-soft);color:var(--fg-2)}
+tr:hover td{background:var(--surface-2)}
+.mono{font-family:var(--mono)}
+.stages{display:flex;align-items:center;gap:0}
+.stage{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.stage .sdot{width:10px;height:10px;border-radius:50%;background:var(--surface-3);border:1px solid var(--border-strong)}
+.stage.ok .sdot{background:var(--success);border-color:transparent}
+.stage.run .sdot{background:var(--accent);border-color:transparent}
+.stage.fail .sdot{background:var(--danger);border-color:transparent}
+.stage-line{width:26px;height:1px;background:var(--border-strong)}
+/* 部署配置面板 */
+.drawer-wrap{position:fixed;top:0;right:0;bottom:0;width:440px;background:var(--bg);border-left:1px solid var(--border);z-index:20;padding:20px;overflow:auto;box-shadow:-20px 0 40px rgba(0,0,0,.4)}
+.drawer-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.drawer-head h3{font-size:16px;font-weight:600}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field label{font-size:12px;color:var(--muted)}
+.field input,.field select{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:9px 11px;color:var(--fg);font-family:var(--font);font-size:13px}
+.field input:focus,.field select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(28,143,230,.3)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.toggle-chip{font-size:12px;padding:6px 12px;border-radius:var(--r-pill);border:1px solid var(--border);background:var(--surface);color:var(--fg-2);cursor:pointer}
+.toggle-chip.on{background:rgba(28,143,230,.15);border-color:var(--accent);color:#bfe0ff}
+.note{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.6}
+.divider{height:1px;background:var(--border);margin:16px 0}
+.range{width:100%;accent-color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><span class="logo"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6z"/></svg></span>OpsConsole</div>
+    <a class="nav-item"><svg class="ico" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>运维首页</a>
+    <div class="nav-group">可观测</div>
+    <a class="nav-item"><svg class="ico" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>监控告警</a>
+    <a class="nav-item"><svg class="ico" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>日志分析</a>
+    <div class="nav-group">交付</div>
+    <a class="nav-item active"><svg class="ico" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>部署 · CI/CD</a>
+    <div class="nav-group">基础设施</div>
+    <a class="nav-item"><svg class="ico" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>主机与 K8s</a>
+    <div class="nav-group">管理</div>
+    <a class="nav-item"><svg class="ico" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>审计日志</a>
+    <a class="nav-item"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>权限与成员</a>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="scope"><svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>团队 <strong>支付平台</strong> · 集群 <strong>prod-bj</strong> · 环境 <strong>生产</strong></div>
+      <div class="spacer"></div>
+      <div class="seg"><button class="on">全部环境</button><button>生产</button><button>预发</button></div>
+      <button class="icon-btn"><svg class="ico" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></button>
+      <div class="avatar">SRE</div>
+    </header>
+
+    <main class="content">
+      <div class="page-head">
+        <div><div class="page-title">部署 · CI/CD</div><div class="page-sub">支付平台 · prod-bj · 流水线视图</div></div>
+        <button class="btn-primary btn" onclick="document.getElementById('deployDrawer').style.display='block'"><svg class="ico ico-sm" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>新建部署</button>
+      </div>
+
+      <div class="card" style="padding:0">
+        <table>
+          <thead><tr><th>服务 / 分支</th><th>环境</th><th>流水线阶段</th><th>状态</th><th>触发人</th><th>时间</th><th></th></tr></thead>
+          <tbody>
+            <tr>
+              <td><div>支付网关</div><div class="mono" style="font-size:12px;color:var(--muted)">main · a1b9c3</div></td>
+              <td><span class="chip info">生产</span></td>
+              <td><div class="stages"><span class="stage ok"><span class="sdot"></span>构建</span><span class="stage-line"></span><span class="stage ok"><span class="sdot"></span>测试</span><span class="stage-line"></span><span class="stage ok"><span class="sdot"></span>部署</span><span class="stage-line"></span><span class="stage ok"><span class="sdot"></span>健康</span></div></td>
+              <td><span class="chip ok">成功</span></td><td>李娜</td><td class="mono">3 分钟前</td><td><button class="btn">详情</button></td>
+            </tr>
+            <tr>
+              <td><div>订单服务</div><div class="mono" style="font-size:12px;color:var(--muted)">release · 7f2e1d</div></td>
+              <td><span class="chip info">生产</span></td>
+              <td><div class="stages"><span class="stage ok"><span class="sdot"></span>构建</span><span class="stage-line"></span><span class="stage ok"><span class="sdot"></span>测试</span><span class="stage-line"></span><span class="stage fail"><span class="sdot"></span>部署</span><span class="stage-line"></span><span class="stage"><span class="sdot"></span>健康</span></div></td>
+              <td><span class="chip danger">失败</span></td><td>王锐</td><td class="mono">21 分钟前</td><td><button class="btn">详情</button></td>
+            </tr>
+            <tr>
+              <td><div>风控服务</div><div class="mono" style="font-size:12px;color:var(--muted)">main · c45a88</div></td>
+              <td><span class="chip">预发</span></td>
+              <td><div class="stages"><span class="stage ok"><span class="sdot"></span>构建</span><span class="stage-line"></span><span class="stage ok"><span class="sdot"></span>测试</span><span class="stage-line"></span><span class="stage run"><span class="sdot"></span>部署</span><span class="stage-line"></span><span class="stage"><span class="sdot"></span>健康</span></div></td>
+              <td><span class="chip warn">进行中</span></td><td>张工</td><td class="mono">刚刚</td><td><button class="btn">详情</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note" style="border-left:2px solid var(--accent);background:var(--surface);padding:10px 14px;border-radius:0 var(--r-sm) var(--r-sm) 0;margin-top:14px">「部署 · CI/CD」域最小闭环：新建部署（配置化表单）→ 流水线执行（阶段可视化）→ 成功/失败 → 一键回滚（危险操作需二次确认并记审计）。配置优先：部署策略（滚动/蓝绿/金丝雀）与回滚阈值在 UI 中点选，无需手改 YAML。</div>
+    </main>
+  </div>
+</div>
+
+<!-- 配置化部署面板 -->
+<div class="drawer-wrap" id="deployDrawer" style="display:none">
+  <div class="drawer-head"><h3>新建部署</h3><button class="icon-btn" onclick="document.getElementById('deployDrawer').style.display='none'"><svg class="ico" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div class="row2">
+    <div class="field"><label>服务</label><select><option>支付网关</option><option>订单服务</option><option>库存服务</option></select></div>
+    <div class="field"><label>环境</label><select><option>生产</option><option>预发</option></select></div>
+  </div>
+  <div class="field"><label>镜像 / 版本</label><select><option>registry/payment-gateway:v1.4.3</option><option>registry/payment-gateway:v1.4.2</option></select></div>
+  <div class="field"><label>部署策略</label><div class="chips"><span class="toggle-chip on">滚动更新</span><span class="toggle-chip">蓝绿部署</span><span class="toggle-chip">金丝雀发布</span></div></div>
+  <div class="field"><label>金丝雀流量比例：<span class="mono" id="canaryVal">10%</span></label><input class="range" type="range" min="5" max="50" value="10" oninput="document.getElementById('canaryVal').textContent=this.value+'%'"></div>
+  <div class="row2">
+    <div class="field"><label>健康检查路径</label><input class="mono" value="/healthz"></div>
+    <div class="field"><label>回滚阈值（错误率）</label><input class="mono" value="1.0%"></div>
+  </div>
+  <div class="divider"></div>
+  <details><summary style="cursor:pointer;color:var(--muted);font-size:13px">查看生成的 YAML（可导出，一般无需手改）</summary><div class="field" style="margin-top:10px"><textarea rows="6" class="mono">apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+spec:
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+  healthCheck: { path: /healthz }
+  autoRollback: { errorRate: 1.0% }</textarea></div></details>
+  <div style="display:flex;gap:10px;margin-top:16px"><button class="btn-primary btn" style="flex:1;justify-content:center" onclick="document.getElementById('deployDrawer').style.display='none'">提交部署</button><button class="btn" style="flex:1;justify-content:center" onclick="document.getElementById('deployDrawer').style.display='none'">存为模板</button></div>
+</div>
+</body>
+</html>

@@ -1,0 +1,9 @@
+=== lucide-react version in package.json ===
+21:    "lucide-react": "0.439.0",
+=== installed lucide-react ===
+  "version": "0.439.0",
+    "version": "pnpm version --git-tag-version=false"
+=== any other icon libs installed? ===
+none
+=== icons.ts import source ===
+74:} from 'lucide-react';

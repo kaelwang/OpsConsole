@@ -1,0 +1,15 @@
+apiVersion: v2
+name: opsconsole
+description: Enterprise multi-tenant unified operations console (OpsConsole) - Helm chart
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - ops
+  - monitoring
+  - devops
+  - console
+  - sre
+home: https://github.com/opsconsole
+sources:
+  - https://github.com/opsconsole

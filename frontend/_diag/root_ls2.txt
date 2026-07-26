@@ -1,0 +1,11 @@
+_diag
+dist
+index.html
+node_modules
+package.json
+package-lock.json
+root_ls2.txt
+src
+tsconfig.json
+tsconfig.node.json
+vite.config.ts

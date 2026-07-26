@@ -1,0 +1,5 @@
+(node:31408) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+npm error Invalid Version: 
+npm error A complete log of this run can be found in: C:\Users\Eversec\AppData\Local\npm-cache\_logs\2026-07-22T17_10_39_673Z-debug-0.log
+INSTALL2_EXIT=1

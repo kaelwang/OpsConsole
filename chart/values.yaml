@@ -1,0 +1,109 @@
+# =============================================================================
+# OpsConsole - Helm values (Helm 3.15+)
+# -----------------------------------------------------------------------------
+# External dependency endpoints (PG / Redis / VictoriaMetrics / OpenSearch) are
+# provisioned OUTSIDE this chart. For local dev, the repo docker-compose.yml
+# provides them. In production, point these at your managed services (or
+# in-cluster operators) and feed the connection strings via the Secret below.
+# =============================================================================
+
+nameOverride: ""
+fullnameOverride: ""
+
+imagePullSecrets: []
+namespaceOverride: ""
+
+# ---- Backend (Go API server) ----
+backend:
+  image:
+    repository: opsconsole/backend
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  replicas: 1
+  port: 8080
+
+  # Non-secret runtime environment (injected via ConfigMap).
+  # NOTE: the task brief wrote OPS_SERVER_PORT; the compiled backend actually
+  # reads OPS_PORT (see backend/internal/config/config.go:22). This chart uses
+  # OPS_PORT to match the running binary.
+  env:
+    OPS_REPOSITORY_MODE: memory            # memory | pg
+    OPS_REDIS_URL: "redis://redis:6379/0"
+    OPS_VICTORIAMETRICS_URL: "http://victoriametrics:8428"
+    OPS_OPENSEARCH_URL: "http://opensearch:9200"
+    OPS_GITLAB_BASE_URL: ""                # set to enable real GitLab CI/CD
+
+  # Secret runtime environment. DO NOT commit real secrets to this file.
+  # Option A (recommended): create the Secret yourself and set existingSecret,
+  #   e.g. `kubectl create secret generic opsconsole-backend-prod \
+  #     --from-literal=OPS_JWT_SECRET=... --from-literal=OPS_DATABASE_URL=...`
+  # Option B: set the values below and the chart creates a Secret (demo only).
+  existingSecret: ""                       # e.g. "opsconsole-backend-prod"
+  secret:
+    OPS_JWT_SECRET: "dev-insecure-secret-change-me"
+    OPS_DATABASE_URL: ""                   # pg mode: postgres://user:pass@pg:5432/opsconsole?sslmode=disable
+    OPS_GITLAB_TOKEN: ""
+    OPS_KUBECONFIG: ""                     # set to enable live K8s pod list/exec
+
+  ingress:
+    enabled: false
+    className: nginx
+    host: api.opsconsole.example.com
+    annotations: {}
+    tls:
+      enabled: false
+      secretName: opsconsole-backend-tls
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# ---- Frontend (nginx serving the Vite build) ----
+# NOTE: VITE_USE_MOCK and VITE_API_BASE are embedded at BUILD time by the
+# frontend Dockerfile (npm run build). The runtime container needs no env for
+# them; the values under `build:` document the production build settings.
+frontend:
+  image:
+    repository: opsconsole/frontend
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  replicas: 1
+  port: 8080
+  build:
+    VITE_USE_MOCK: "false"
+    VITE_API_BASE: "/api/v1"
+
+  ingress:
+    enabled: true
+    className: nginx
+    host: opsconsole.example.com
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    tls:
+      enabled: false
+      secretName: opsconsole-tls
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# ---- External dependency endpoints (documentation / source of truth) ----
+# Referenced by backend.env above; provision outside the chart.
+external:
+  postgresql:
+    url: "postgres://postgres:postgres_dev@pg:5432/opsconsole?sslmode=disable"
+  redis:
+    url: "redis://redis:6379/0"
+  victoriametrics:
+    url: "http://victoriametrics:8428"
+  opensearch:
+    url: "http://opensearch:9200"

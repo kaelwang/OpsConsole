@@ -1,0 +1,141 @@
+/* ==========================================================================
+   Design Tokens — 唯一颜色/字体/间距/动效真值来源
+   由 design-tokens.json 生成（禁止在组件内硬编码颜色，仅 #fff/#000 例外）。
+   深色为规范面（canonical）；浅色经 [data-theme="light"] 切换。
+   双主题一等公民：同一组语义 Token，仅值随 data-theme 切换。
+   ========================================================================== */
+
+/* ---------- 深色（规范面 / 默认）---------- */
+:root,
+:root[data-theme='dark'] {
+  /* 表面阶梯 + 文字 */
+  --bg: #0b0e14;
+  --surface: #121620;
+  --surface-2: #1a1f2b;
+  --surface-3: #232a38;
+  --fg: #e6e9ef;
+  --fg-2: #b4bacd;
+  --muted: #7a8294;
+  --meta: #565e6e;
+
+  /* 品牌强调色（Signal Cerulean）— 每屏 ≤2 处可见使用 */
+  --accent: #1c8fe6;
+  --accent-hover: #3aa0f0;
+  --accent-active: #1577c2;
+  --accent-on: #ffffff;
+  --accent-ring: rgba(28, 143, 230, 0.4);
+
+  /* 发丝边框（表面阶梯表达层级，禁用大阴影/毛玻璃） */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-soft: rgba(255, 255, 255, 0.05);
+  --border-strong: rgba(255, 255, 255, 0.12);
+
+  /* 语义色（仅表达状态，不作装饰） */
+  --success: #2ea043;
+  --warn: #e8a33d;
+  --danger: #f85149;
+
+  /* 图表数据序列色（仅作数据区分，非主视觉；紫色 #A371F7 在此合法） */
+  --chart-0: #58a6ff;
+  --chart-1: #2dd4bf;
+  --chart-2: #e8a33d;
+  --chart-3: #f85149;
+  --chart-4: #a371f7;
+  --chart-5: #3fb950;
+  --chart-6: #db61f2;
+  --chart-7: #d2a8ff;
+
+  /* 字体 */
+  --font-display: 'Geist', 'Inter', 'Noto Sans SC', system-ui, sans-serif;
+  --font-body: 'Geist', 'Inter', 'Noto Sans SC', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  /* 字号阶梯（基准 14） */
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-base: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --font-size-3xl: 32px;
+
+  /* 字重 */
+  --weight-read: 400;
+  --weight-emphasize: 500;
+  --weight-announce: 600;
+
+  /* 字距 */
+  --tracking-caps: 0.06em;
+  --tracking-display: -0.02em;
+  --tracking-body: 0;
+
+  /* 间距（4px 网格） */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* 圆角（上限 12px，禁用 ≥24px 过度圆滑） */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 9999px;
+
+  /* 动效（禁用弹跳缓动，统一 cubic-bezier(0.2,0,0,1)） */
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* 层级（表面阶梯，非阴影） */
+  --elev-flat: none;
+  --elev-ring: 0 0 0 1px var(--border);
+  --elev-raised: 0 0 0 1px var(--border-strong);
+  --focus-ring: 0 0 0 3px var(--accent-ring);
+}
+
+/* ---------- 浅色（同等一等公民）---------- */
+:root[data-theme='light'] {
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --surface-2: #f1f3f7;
+  --surface-3: #e8ebf1;
+  --fg: #1a1f2b;
+  --fg-2: #3d4456;
+  --muted: #6b7385;
+  --meta: #98a0b0;
+
+  --accent: #1577c2;
+  --accent-hover: #1c8fe6;
+  --accent-active: #0f5fa0;
+  --accent-on: #ffffff;
+  --accent-ring: rgba(21, 119, 194, 0.35);
+
+  --border: rgba(0, 0, 0, 0.1);
+  --border-soft: rgba(0, 0, 0, 0.06);
+  --border-strong: rgba(0, 0, 0, 0.16);
+
+  --success: #1a7f37;
+  --warn: #b7791f;
+  --danger: #d23f3f;
+
+  --chart-0: #58a6ff;
+  --chart-1: #2dd4bf;
+  --chart-2: #e8a33d;
+  --chart-3: #f85149;
+  --chart-4: #a371f7;
+  --chart-5: #3fb950;
+  --chart-6: #db61f2;
+  --chart-7: #d2a8ff;
+
+  --elev-flat: none;
+  --elev-ring: 0 0 0 1px var(--border);
+  --elev-raised: 0 1px 2px rgba(0, 0, 0, 0.06), 0 0 0 1px var(--border);
+  --focus-ring: 0 0 0 3px var(--accent-ring);
+}

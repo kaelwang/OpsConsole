@@ -1,0 +1,5 @@
+pkgs: 125
+antd OK
+echarts OK
+lucide OK
+babel STILL PRESENT

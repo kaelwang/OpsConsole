@@ -1,0 +1,3 @@
+hello
+exit_was=0
+-rw-r--r-- 1 Eversec 197121 17 Jul 23 01:17 probe.txt

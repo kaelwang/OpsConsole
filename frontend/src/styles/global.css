@@ -1,0 +1,155 @@
+/* ==========================================================================
+   全局基底样式 — 仅引用 tokens.css 的 CSS 变量，禁止硬编码颜色
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--font-size-base);
+  font-weight: var(--weight-read);
+  line-height: 1.5;
+  color: var(--fg);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background-color var(--motion-base) var(--motion-ease),
+    color var(--motion-base) var(--motion-ease);
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--accent-hover);
+}
+
+/* 等宽数字（表格/指标/日志/时间戳） */
+.mono,
+.font-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 大标题负字距 */
+.display {
+  letter-spacing: var(--tracking-display);
+}
+
+/* ALL-CAPS 小标签 */
+.caps {
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+/* 细发丝分隔线 */
+.hairline {
+  border: 0;
+  border-top: 1px solid var(--border-soft);
+  margin: 0;
+}
+
+/* 表面卡片（1px 边框 + 轻圆角，禁用"幽灵卡片"：边框 + ≥16px 模糊阴影同现） */
+.surface-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+/* 自定义滚动条（引用 token，不刺眼） */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--radius-pill);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 焦点环（键盘可达性） */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+/* 选中文本 */
+::selection {
+  background: var(--accent-ring);
+  color: var(--fg);
+}
+
+/* 减少动效偏好：降级为瞬时 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* xterm 终端容器 */
+.xterm-host {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  height: 100%;
+  min-height: 320px;
+}
+.xterm .xterm-viewport {
+  background-color: transparent !important;
+}
+
+/* 日志流关键字高亮（语义色，不占 accent 配额） */
+.log-hl {
+  background: color-mix(in srgb, var(--warn) 24%, transparent);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+/* 旋转动画（Loader2 spin 替代），随 reduced-motion 降级 */
+@keyframes ops-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin {
+  animation: ops-spin 0.9s linear infinite;
+}
+
+/* AntD 覆写：让品牌色随 data-theme 由 ConfigProvider token 控制；
+   此处仅统一圆角与字体感知，避免毛玻璃/大阴影。 */
+.ant-app,
+.ant-config-provider {
+  font-family: var(--font-body);
+}

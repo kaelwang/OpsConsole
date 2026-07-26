@@ -1,0 +1,512 @@
+openapi: 3.0.3
+info:
+  title: 企业运维控制台 API
+  version: 1.0.0
+  description: >
+    MVP v1 契约。统一响应体 { code, data, message }；所有端点带 /api/v1 前缀；
+    认证用 Bearer JWT；租户上下文由网关中间件注入（tenant_id + role）。
+    本文件为前后端唯一契约依据（spec-as-contract）。
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    # ---------- 统一信封 ----------
+    ErrorEnvelope:
+      type: object
+      properties:
+        code: { type: integer, example: 403 }
+        data: { type: 'null', nullable: true }
+        message: { type: string, example: 'FORBIDDEN: role viewer cannot trigger pipeline' }
+    Page:
+      type: object
+      properties:
+        items: { type: array, items: { type: object } }
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+        hasMore: { type: boolean }
+    # ---------- 认证 ----------
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+    TokenResponse:
+      type: object
+      properties:
+        accessToken: { type: string }
+        expiresIn: { type: integer }
+        tenantId: { type: string, format: uuid }
+        role: { type: string, enum: [platform_admin, owner, admin, member, viewer] }
+    # ---------- 监控告警 ----------
+    AlertRule:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        expr: { type: string, description: PromQL 表达式 }
+        for: { type: string, example: '5m', description: 持续时长 }
+        severity: { type: string, enum: [info, warning, critical] }
+        channelIds: { type: array, items: { type: string, format: uuid }, description: 关联通知渠道 }
+        createdBy: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+    AlertRuleCreateRequest:
+      type: object
+      required: [expr, severity]
+      properties:
+        expr: { type: string }
+        for: { type: string, default: '5m' }
+        severity: { type: string, enum: [info, warning, critical] }
+        channelIds: { type: array, items: { type: string, format: uuid } }
+    AlertEvent:
+      type: object
+      properties:
+        id: { type: string, format: uuid, description: 告警事件 ID（来自 vmalert） }
+        ruleId: { type: string, format: uuid, description: 触发规则 ID }
+        severity: { type: string, enum: [info, warning, critical] }
+        status: { type: string, enum: [firing, resolved] }
+        firedAt: { type: string, format: date-time }
+        summary: { type: string }
+        labels: { type: object, additionalProperties: { type: string }, description: 标签键值对 }
+    AlertEventPage:
+      type: object
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AlertEvent' } }
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+        hasMore: { type: boolean }
+    NotificationChannel:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        type: { type: string, enum: [email, webhook, wecom, dingtalk, feishu] }
+        config: { type: object, additionalProperties: true, description: 渠道配置 jsonb（如收件人/URL/secret） }
+        createdAt: { type: string, format: date-time }
+    NotificationChannelCreateRequest:
+      type: object
+      required: [type, config]
+      properties:
+        type: { type: string, enum: [email, webhook, wecom, dingtalk, feishu] }
+        config: { type: object, additionalProperties: true, description: 渠道配置 jsonb }
+    # ---------- 日志分析 ----------
+    LogEntry:
+      type: object
+      properties:
+        timestamp: { type: string, format: date-time }
+        level: { type: string, enum: [debug, info, warn, error] }
+        service: { type: string }
+        message: { type: string }
+    # ---------- 部署 / CI-CD ----------
+    Pipeline:
+      type: object
+      properties:
+        id: { type: string, description: GitLab pipeline id }
+        name: { type: string }
+        status: { type: string, enum: [success, failed, running, pending] }
+        lastRunAt: { type: string, format: date-time }
+    Deployment:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        pipelineId: { type: string }
+        version: { type: string }
+        status: { type: string, enum: [pending, running, success, failed, rolled_back] }
+        createdBy: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+    RollbackRequest:
+      type: object
+      properties:
+        targetVersion: { type: string, description: 目标回滚版本；缺省则回滚至上一稳定版本 }
+    # ---------- 主机与 K8s ----------
+    Cluster:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        kubeconfigRef: { type: string, description: kubeconfig 凭据引用（secret 存储，非明文） }
+        saName: { type: string, description: 用于 impersonation 的服务账号名 }
+        createdAt: { type: string, format: date-time }
+    ClusterCreateRequest:
+      type: object
+      required: [name, kubeconfigRef, saName]
+      properties:
+        name: { type: string }
+        kubeconfigRef: { type: string }
+        saName: { type: string }
+    Pod:
+      type: object
+      properties:
+        name: { type: string }
+        namespace: { type: string }
+        status: { type: string }
+        node: { type: string }
+        restarts: { type: integer }
+        age: { type: string, description: 如 3d4h }
+    Host:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        ip: { type: string }
+        os: { type: string }
+        status: { type: string, enum: [online, offline, unknown] }
+        createdAt: { type: string, format: date-time }
+
+paths:
+  # ---------- 账号 / 认证 ----------
+  /auth/login:
+    post:
+      summary: 用户登录
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 0 }
+                  data: { $ref: '#/components/schemas/TokenResponse' }
+                  message: { type: string, example: '' }
+        '401':
+          description: 认证失败
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  # ---------- RBAC ----------
+  /rbac/roles:
+    get:
+      summary: 列出角色与权限
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 0 }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        role: { type: string }
+                        permissions: { type: array, items: { type: string }, example: ['monitoring:read', 'deployment:trigger'] }
+                  message: { type: string }
+  /rbac/assign:
+    post:
+      summary: 为租户成员分配角色（需 admin 以上）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, role]
+              properties:
+                userId: { type: string, format: uuid }
+                role: { type: string, enum: [owner, admin, member, viewer] }
+      responses:
+        '200': { description: OK }
+        '403': { description: 越权, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } }
+
+  # ---------- 审计 ----------
+  /audit/logs:
+    get:
+      summary: 查询审计日志（分页 + 过滤）
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - { name: actorId, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, default: 20 } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 0 }
+                  data: { $ref: '#/components/schemas/Page' }
+                  message: { type: string }
+
+  # ---------- 监控告警 ----------
+  /monitoring/query:
+    get:
+      summary: 执行 PromQL 查询（代理 VictoriaMetrics）
+      parameters:
+        - { name: expr, in: query, required: true, schema: { type: string }, description: PromQL 表达式 }
+        - { name: step, in: query, schema: { type: string }, description: 如 30s }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, properties: { code: { type: integer }, data: { type: object }, message: { type: string } } } } } }
+        '408': { description: 查询超时（高基数）, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } }
+  /monitoring/alert-rules:
+    get:
+      summary: 列出告警规则
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 0 }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/AlertRule' }
+                  message: { type: string }
+    post:
+      summary: 创建告警规则（需 admin 以上）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AlertRuleCreateRequest' }
+      responses:
+        '201':
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 0 }
+                  data: { $ref: '#/components/schemas/AlertRule' }
+                  message: { type: string }
+        '403': { description: 越权, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } }
+  /monitoring/alerts:
+    get:
+      summary: 列出告警事件（代理 vmalert，按租户过滤）
+      description: 告警事件由 vmalert 评估产生，经租户上下文过滤后返回；非 PG 存储表。
+      parameters:
+        - { name: severity, in: query, schema: { type: string, enum: [info, warning, critical] } }
+        - { name: status, in: query, schema: { type: string, enum: [firing, resolved] } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, default: 20 } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 0 }
+                  data: { $ref: '#/components/schemas/AlertEventPage' }
+                  message: { type: string }
+  /monitoring/notifications:
+    get:
+      summary: 列出通知渠道配置（需 admin 以上）
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 0 }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/NotificationChannel' }
+                  message: { type: string }
+        '403': { description: 越权, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } }
+    post:
+      summary: 创建通知渠道配置（需 admin 以上）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NotificationChannelCreateRequest' }
+      responses:
+        '201':
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 0 }
+                  data: { $ref: '#/components/schemas/NotificationChannel' }
+                  message: { type: string }
+        '403': { description: 越权, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } }
+
+  # ---------- 日志分析 ----------
+  /logging/search:
+    get:
+      summary: 日志全文检索（代理 OpenSearch）
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string } }
+        - { name: from, in: query, schema: { type: string }, description: ISO 时间 }
+        - { name: to, in: query, schema: { type: string } }
+        - { name: level, in: query, schema: { type: string, enum: [debug, info, warn, error] } }
+        - { name: service, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, default: 100 } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 0 }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/LogEntry' }
+                  message: { type: string }
+  /logging/tail:
+    get:
+      summary: 实时日志流（WebSocket 升级）
+      description: 经 WebSocket 推送匹配日志；超并发上限降级轮询。
+      responses:
+        '101': { description: Switching Protocols }
+
+  # ---------- 部署 / CI-CD ----------
+  /deployment/pipelines:
+    get:
+      summary: 列出流水线（GitLab 适配）
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 0 }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Pipeline' }
+                  message: { type: string }
+  /deployment/pipelines/{id}/trigger:
+    post:
+      summary: 触发流水线（需 member 以上）
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '202': { description: 已接受 }
+        '403': { description: 越权, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } }
+  /deployment/pipelines/{id}/rollback:
+    post:
+      summary: 回滚到上一稳定版本（需 member 以上）
+      description: 默认回滚至上一稳定版本；可经 targetVersion 指定目标版本。生成新 deployment 记录。
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string }, description: 流水线 id }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RollbackRequest' }
+      responses:
+        '201':
+          description: 已接受回滚（已创建回滚 deployment 记录）
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 0 }
+                  data: { $ref: '#/components/schemas/Deployment' }
+                  message: { type: string }
+        '403': { description: 越权, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } }
+
+  # ---------- 主机与 K8s ----------
+  /infrastructure/clusters:
+    get:
+      summary: 列出已注册集群
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 0 }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Cluster' }
+                  message: { type: string }
+    post:
+      summary: 注册集群（绑定 SA + impersonation 配置，需 admin 以上）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClusterCreateRequest' }
+      responses:
+        '201':
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 0 }
+                  data: { $ref: '#/components/schemas/Cluster' }
+                  message: { type: string }
+        '403': { description: 越权, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } }
+  /infrastructure/clusters/{id}/pods:
+    get:
+      summary: 列出 Pod（经 SA impersonation 透传 K8s RBAC）
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: namespace, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 0 }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Pod' }
+                  message: { type: string }
+        '403': { description: 租户越权 / K8s RBAC 拒绝, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } }
+  /infrastructure/clusters/{id}/exec:
+    get:
+      summary: 容器终端（WebSocket，经 impersonation）
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: pod, in: query, required: true, schema: { type: string } }
+        - { name: container, in: query, schema: { type: string } }
+      responses:
+        '101': { description: Switching Protocols }
+  /infrastructure/hosts:
+    get:
+      summary: 列出主机（SSH/agent 纳管）
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 0 }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Host' }
+                  message: { type: string }

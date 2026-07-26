@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  # Fixed name "opsconsole-backend": the frontend nginx image proxies /api to
+  # this hostname. Keep it stable across releases so the SPA proxy resolves.
+  name: opsconsole-backend
+  labels:
+    {{- include "opsconsole.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "opsconsole.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+  ports:
+    - name: http
+      port: {{ .Values.backend.port }}
+      targetPort: http
+      protocol: TCP

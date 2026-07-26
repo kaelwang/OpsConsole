@@ -1,0 +1,21 @@
+src/App.tsx(31,29): error TS2551: Property 'borderSoft' does not exist on type '{ bg: { dark: string; light: string; type: string; }; surface: { dark: string; light: string; type: string; }; "surface-2": { dark: string; light: string; type: string; }; "surface-3": { dark: string; light: string; type: string; }; ... 13 more ...; danger: { ...; }; }'. Did you mean 'border-soft'?
+src/App.tsx(32,19): error TS2551: Property 'borderSoft' does not exist on type '{ bg: { dark: string; light: string; type: string; }; surface: { dark: string; light: string; type: string; }; "surface-2": { dark: string; light: string; type: string; }; "surface-3": { dark: string; light: string; type: string; }; ... 13 more ...; danger: { ...; }; }'. Did you mean 'border-soft'?
+src/App.tsx(34,27): error TS2551: Property 'fg2' does not exist on type '{ bg: { dark: string; light: string; type: string; }; surface: { dark: string; light: string; type: string; }; "surface-2": { dark: string; light: string; type: string; }; "surface-3": { dark: string; light: string; type: string; }; ... 13 more ...; danger: { ...; }; }'. Did you mean 'fg-2'?
+src/features/delivery/PipelinesPage.tsx(35,30): error TS2367: This comparison appears to be unintentional because the types '-1 | 2' and '1' have no overlap.
+src/features/infrastructure/ClustersPage.tsx(207,71): error TS2345: Argument of type 'number | undefined' is not assignable to parameter of type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/features/infrastructure/ClustersPage.tsx(211,74): error TS2345: Argument of type 'number | undefined' is not assignable to parameter of type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/features/settings/SettingsPage.tsx(119,184): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+src/services/api/audit.ts(19,45): error TS2345: Argument of type 'ListAuditParams' is not assignable to parameter of type 'Record<string, unknown>'.
+  Index signature for type 'string' is missing in type 'ListAuditParams'.
+src/services/api/deployment.ts(12,3): error TS2740: Type 'AxiosResponse<Pipeline[], any, {}>' is missing the following properties from type 'Pipeline[]': length, pop, push, concat, and 29 more.
+src/services/api/deployment.ts(53,8): error TS2339: Property 'map' does not exist on type 'AxiosResponse<Deployment[], any, {}>'.
+src/services/api/deployment.ts(53,25): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/services/api/logging.ts(21,45): error TS2345: Argument of type 'SearchLogsParams' is not assignable to parameter of type 'Record<string, unknown>'.
+  Index signature for type 'string' is missing in type 'SearchLogsParams'.
+src/services/api/monitoring.ts(71,54): error TS2345: Argument of type 'ListAlertsParams' is not assignable to parameter of type 'Record<string, unknown>'.
+  Index signature for type 'string' is missing in type 'ListAlertsParams'.
+TSC_EXIT=2
+[36mvite v5.4.21 [32mbuilding for production...[36m[39m
+transforming...

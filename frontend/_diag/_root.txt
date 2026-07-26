@@ -1,0 +1,14 @@
+.cleanup_marker
+.env
+.gitignore
+_diag
+_root.txt
+dist
+index.html
+node_modules
+package.json
+package-lock.json
+src
+tsconfig.json
+tsconfig.node.json
+vite.config.ts

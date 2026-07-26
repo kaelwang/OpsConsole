@@ -1,0 +1,21 @@
+BUILD_EXIT=0
+=== HEALTHZ ===
+
+=== LOGIN admin ===
+
+ADMIN_TOKEN_LEN=0
+=== AUDIT (admin token) ===
+
+=== AUDIT (no token, expect 401) ===
+HTTP=000
+=== WRONG PASS (expect 401) ===
+HTTP=000
+=== MONITORING QUERY (no VM URL, expect 502) ===
+HTTP=000
+=== CLUSTERS (admin token) ===
+
+=== VIEWER LOGIN ===
+VIEWER_TOKEN_LEN=0
+=== VIEWER CREATE CLUSTER (expect 403 RBAC) ===
+HTTP=000
+SMOKE_DONE

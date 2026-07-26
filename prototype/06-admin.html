@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<!-- 统一运维控制台 · 高保真原型 · 管理域（审计日志 + 角色权限）
+     图标: Lucide 风格内联 SVG 占位；配色: 全部 Design Token 变量。无 emoji / 无紫粉渐变。
+     权限护栏: 禁用操作显式提示原因；审计可搜索/筛选/导出。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>管理 · 审计与权限 · 统一运维控制台</title>
+<style>
+:root{--bg:#0B0E14;--surface:#121620;--surface-2:#1A1F2B;--surface-3:#232A38;--fg:#E6E9EF;--fg-2:#B4BACD;--muted:#7A8294;--meta:#565E6E;--accent:#1C8FE6;--accent-hover:#3AA0F0;--accent-active:#1577C2;--accent-on:#fff;--success:#2EA043;--warn:#E8A33D;--danger:#F85149;--border:rgba(255,255,255,.08);--border-soft:rgba(255,255,255,.05);--border-strong:rgba(255,255,255,.12);--font:"Geist","Inter","Noto Sans SC",system-ui,sans-serif;--mono:"Geist Mono","JetBrains Mono",ui-monospace,Menlo,monospace;--r-sm:6px;--r-md:8px;--r-lg:12px;--r-pill:9999px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);font-size:14px;line-height:1.5;background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased}
+.ico{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ico-sm{width:16px;height:16px}
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:14px 10px;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh}
+.brand{display:flex;align-items:center;gap:9px;padding:6px 8px 14px;font-weight:600}
+.brand .logo{width:28px;height:28px;border-radius:var(--r-sm);background:linear-gradient(180deg,var(--accent-hover),var(--accent-active));display:grid;place-items:center;color:#fff}
+.nav-group{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--meta);padding:12px 8px 4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r-sm);color:var(--fg-2);text-decoration:none;font-size:14px;cursor:pointer}
+.nav-item:hover{background:var(--surface-2);color:var(--fg)}
+.nav-item.active{background:var(--surface-2);color:var(--fg);box-shadow:inset 2px 0 0 var(--accent)}
+.main{display:flex;flex-direction:column;min-width:0}
+.topbar{display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(11,14,20,.82);backdrop-filter:blur(8px);z-index:5}
+.scope{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);font-size:13px;color:var(--fg-2)}
+.scope strong{color:var(--fg);font-weight:500}
+.spacer{flex:1}
+.icon-btn{width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--fg-2);cursor:pointer}
+.icon-btn:hover{color:var(--fg);border-color:var(--border-strong)}
+.avatar{width:32px;height:32px;border-radius:var(--r-pill);background:var(--surface-3);display:grid;place-items:center;font-size:12px;color:var(--fg-2);border:1px solid var(--border)}
+.content{padding:24px 20px 64px;max-width:1340px;width:100%}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px;gap:16px}
+.page-title{font-size:24px;font-weight:600;letter-spacing:-.02em}
+.page-sub{color:var(--muted);font-size:13px;margin-top:3px}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface);color:var(--fg);font-size:13px;font-family:var(--font);cursor:pointer}
+.btn:hover{border-color:var(--border-strong);background:var(--surface-2)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:var(--accent-on)}
+.btn-primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:18px}
+.tab{padding:9px 16px;font-size:14px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent}
+.tab.on{color:var(--fg);border-bottom-color:var(--accent)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px}
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.section-title{font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--fg-2)}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:2px 9px;border-radius:var(--r-pill);border:1px solid var(--border);color:var(--fg-2)}
+.chip.info{color:#8ecbff;background:rgba(28,143,230,.14);border-color:transparent}
+.chip.warn{color:#f0c074;background:rgba(232,163,61,.13);border-color:transparent}
+.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.filters select,.filters input{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 11px;color:var(--fg);font-family:var(--font);font-size:13px}
+.qbar{flex:1;min-width:240px;display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--muted);font-family:var(--mono);font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:9px 12px;border-bottom:1px solid var(--border)}
+td{padding:11px 12px;border-bottom:1px solid var(--border-soft);color:var(--fg-2)}
+tr:hover td{background:var(--surface-2)}
+.mono{font-family:var(--mono)}
+.note{font-size:12px;color:var(--muted);margin-top:12px;line-height:1.6;border-left:2px solid var(--accent);padding:8px 12px;background:var(--surface);border-radius:0 var(--r-sm) var(--r-sm) 0}
+/* 权限矩阵 */
+.matrix{width:100%;border-collapse:collapse;font-size:13px}
+.matrix th,.matrix td{padding:10px 12px;border-bottom:1px solid var(--border-soft);text-align:center}
+.matrix th:first-child,.matrix td:first-child{text-align:left;color:var(--fg-2)}
+.matrix thead th{color:var(--muted);font-weight:500;font-size:12px}
+.lock{color:var(--meta)}
+.deny{color:var(--danger)}
+.allow{color:var(--success)}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><span class="logo"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6z"/></svg></span>OpsConsole</div>
+    <a class="nav-item"><svg class="ico" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>运维首页</a>
+    <div class="nav-group">可观测</div>
+    <a class="nav-item"><svg class="ico" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>监控告警</a>
+    <a class="nav-item"><svg class="ico" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>日志分析</a>
+    <div class="nav-group">交付</div>
+    <a class="nav-item"><svg class="ico" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>部署 · CI/CD</a>
+    <div class="nav-group">基础设施</div>
+    <a class="nav-item"><svg class="ico" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>主机与 K8s</a>
+    <div class="nav-group">管理</div>
+    <a class="nav-item active"><svg class="ico" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>审计日志</a>
+    <a class="nav-item"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>权限与成员</a>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="scope"><svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>团队 <strong>支付平台</strong> · 集群 <strong>全部</strong> · 环境 <strong>全部</strong></div>
+      <div class="spacer"></div>
+      <button class="icon-btn"><svg class="ico" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></button>
+      <div class="avatar">SRE</div>
+    </header>
+
+    <main class="content">
+      <div class="page-head">
+        <div><div class="page-title">管理 · 审计与权限</div><div class="page-sub">审计日志可搜索 / 筛选 / 导出；角色权限可视化，禁用操作显式提示原因</div></div>
+      </div>
+      <div class="tabs"><div class="tab on">审计日志</div><div class="tab">角色权限</div><div class="tab">成员管理</div><div class="tab">系统设置</div></div>
+
+      <!-- 审计日志 -->
+      <div class="filters">
+        <div class="qbar"><svg class="ico ico-sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>actor:王锐 AND action:修改权限</div>
+        <select><option>全部操作者</option><option>张工 (SRE)</option><option>李娜 (运维)</option><option>王锐 (超管)</option></select>
+        <select><option>全部动作</option><option>触发部署</option><option>修改权限</option><option>静默告警</option><option>删除资源</option></select>
+        <select><option>全部时间</option><option>近 1h</option><option>近 24h</option><option>近 7d</option></select>
+        <button class="btn-primary btn"><svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>导出 CSV</button>
+      </div>
+      <div class="card" style="padding:0">
+        <table>
+          <thead><tr><th>时间</th><th>操作者</th><th>动作</th><th>资源</th><th>变更前 → 后</th><th>来源 IP</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">09:42</td><td>张工 (SRE)</td><td>静默告警</td><td class="mono">alert/inventory-p99</td><td class="mono">触发中 → 静默 30m</td><td class="mono">10.20.3.11</td></tr>
+            <tr><td class="mono">09:39</td><td>李娜 (运维)</td><td>触发部署</td><td class="mono">deploy/payment-gateway</td><td class="mono">v1.4.2 → v1.4.3</td><td class="mono">10.20.3.24</td></tr>
+            <tr><td class="mono">08:15</td><td>王锐 (超管)</td><td>修改角色权限</td><td class="mono">role/developer</td><td class="mono">无部署权限 → 预发部署</td><td class="mono">10.20.1.2</td></tr>
+            <tr><td class="mono">07:50</td><td>系统</td><td>自动扩容</td><td class="mono">deploy/inventory</td><td class="mono">4 → 6 副本</td><td class="mono">-</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 角色权限矩阵（第二 tab 预览） -->
+      <div class="section">
+        <div class="section-head"><div class="section-title">角色权限矩阵（角色权限 Tab）</div><span class="chip warn">只读角色所有写操作禁用并提示原因</span></div>
+        <div class="card" style="padding:0">
+          <table class="matrix">
+            <thead><tr><th>能力</th><th>超管</th><th>运维</th><th>SRE</th><th>开发</th><th>只读</th></tr></thead>
+            <tbody>
+              <tr><td>查看监控 / 日志</td><td class="allow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></td><td class="allow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></td><td class="allow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></td><td class="allow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></td><td class="allow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></td></tr>
+              <tr><td>触发部署</td><td class="allow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></td><td class="allow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></td><td class="allow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></td><td class="allow">预发</td><td class="deny"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></td></tr>
+              <tr><td>修改告警规则</td><td class="allow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></td><td class="allow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></td><td class="allow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></td><td class="deny"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></td><td class="deny"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></td></tr>
+              <tr><td>管理集群 / 节点</td><td class="allow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></td><td class="allow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></td><td class="deny"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></td><td class="deny"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></td><td class="deny"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></td></tr>
+              <tr><td>修改角色权限</td><td class="allow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></td><td class="deny"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></td><td class="deny"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></td><td class="deny"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></td><td class="deny"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note">权限护栏：只读 / 开发等角色在 UI 中遇到无权限的写操作（如「触发部署」「修改规则」）时，按钮置灰并 hover 提示「需要 X 权限，联系管理员」；所有写操作默认进入审计日志（谁/什么/前后值/来源）。此为「管理」域最小闭环：审计可追溯 → 权限可视 → 成员可治理。</div>
+      </div>
+    </main>
+  </div>
+</div>
+</body>
+</html>

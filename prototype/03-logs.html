@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<!-- 统一运维控制台 · 高保真原型 · 日志分析域（facet 过滤 + 检索 + 类终端日志流）
+     图标: Lucide 风格内联 SVG 占位；配色: 全部 Design Token 变量。无 emoji / 无紫粉渐变。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>日志分析 · 统一运维控制台</title>
+<style>
+:root{--bg:#0B0E14;--surface:#121620;--surface-2:#1A1F2B;--surface-3:#232A38;--fg:#E6E9EF;--fg-2:#B4BACD;--muted:#7A8294;--meta:#565E6E;--accent:#1C8FE6;--accent-hover:#3AA0F0;--accent-active:#1577C2;--accent-on:#fff;--success:#2EA043;--warn:#E8A33D;--danger:#F85149;--border:rgba(255,255,255,.08);--border-soft:rgba(255,255,255,.05);--border-strong:rgba(255,255,255,.12);--font:"Geist","Inter","Noto Sans SC",system-ui,sans-serif;--mono:"Geist Mono","JetBrains Mono",ui-monospace,Menlo,monospace;--r-sm:6px;--r-md:8px;--r-lg:12px;--r-pill:9999px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);font-size:14px;line-height:1.5;background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased}
+.ico{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ico-sm{width:16px;height:16px}
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:14px 10px;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh}
+.brand{display:flex;align-items:center;gap:9px;padding:6px 8px 14px;font-weight:600}
+.brand .logo{width:28px;height:28px;border-radius:var(--r-sm);background:linear-gradient(180deg,var(--accent-hover),var(--accent-active));display:grid;place-items:center;color:#fff}
+.nav-group{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--meta);padding:12px 8px 4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r-sm);color:var(--fg-2);text-decoration:none;font-size:14px;cursor:pointer}
+.nav-item:hover{background:var(--surface-2);color:var(--fg)}
+.nav-item.active{background:var(--surface-2);color:var(--fg);box-shadow:inset 2px 0 0 var(--accent)}
+.main{display:flex;flex-direction:column;min-width:0}
+.topbar{display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(11,14,20,.82);backdrop-filter:blur(8px);z-index:5}
+.scope{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);font-size:13px;color:var(--fg-2)}
+.scope strong{color:var(--fg);font-weight:500}
+.search{flex:1;max-width:440px;display:flex;align-items:center;gap:8px;padding:7px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--muted);font-size:13px}
+.spacer{flex:1}
+.icon-btn{width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--fg-2);cursor:pointer}
+.icon-btn:hover{color:var(--fg);border-color:var(--border-strong)}
+.avatar{width:32px;height:32px;border-radius:var(--r-pill);background:var(--surface-3);display:grid;place-items:center;font-size:12px;color:var(--fg-2);border:1px solid var(--border)}
+.content{padding:24px 20px 64px;max-width:1340px;width:100%}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px;gap:16px}
+.page-title{font-size:24px;font-weight:600;letter-spacing:-.02em}
+.page-sub{color:var(--muted);font-size:13px;margin-top:3px}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface);color:var(--fg);font-size:13px;font-family:var(--font);cursor:pointer}
+.btn:hover{border-color:var(--border-strong);background:var(--surface-2)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:var(--accent-on)}
+.btn-primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.split{display:grid;grid-template-columns:232px 1fr;gap:16px}
+.facet-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px}
+.facet-title{font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.facet{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:var(--r-sm);cursor:pointer;font-size:13px;color:var(--fg-2)}
+.facet:hover{background:var(--surface-2)}
+.facet input{accent-color:var(--accent)}
+.facet .cnt{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--meta)}
+.facet-group{margin-bottom:14px}
+.stream-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden}
+.stream-bar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface-2)}
+.qbar{flex:1;display:flex;align-items:center;gap:8px;padding:7px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg);color:var(--fg-2);font-family:var(--mono);font-size:13px}
+.query-chips{display:flex;gap:6px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--border)}
+.qchip{font-family:var(--mono);font-size:12px;padding:3px 9px;border-radius:var(--r-pill);background:rgba(28,143,230,.14);color:#bfe0ff;border:1px solid transparent}
+.log-line{font-family:var(--mono);font-size:12.5px;padding:6px 14px;border-bottom:1px solid var(--border-soft);display:flex;gap:12px;white-space:pre;overflow-x:auto}
+.log-line:hover{background:var(--surface-2)}
+.log-line .ts{color:var(--meta);min-width:78px}
+.log-line .svc{color:#8ecbff;min-width:92px}
+.log-line .lv{font-weight:600;min-width:46px}
+.lv.ERR{color:#ff9b95}.lv.WARN{color:#f0c074}.lv.INFO{color:var(--muted)}.lv.DEBUG{color:var(--meta)}
+.dot{width:8px;height:8px;border-radius:50%}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:2px 9px;border-radius:var(--r-pill);border:1px solid var(--border);color:var(--fg-2)}
+.chip.danger{color:#ff9b95;background:rgba(248,81,73,.15);border-color:transparent}
+.note{font-size:12px;color:var(--muted);margin-top:12px;line-height:1.6;border-left:2px solid var(--accent);padding:8px 12px;background:var(--surface);border-radius:0 var(--r-sm) var(--r-sm) 0}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><span class="logo"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6z"/></svg></span>OpsConsole</div>
+    <a class="nav-item"><svg class="ico" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>运维首页</a>
+    <div class="nav-group">可观测</div>
+    <a class="nav-item"><svg class="ico" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>监控告警</a>
+    <a class="nav-item active"><svg class="ico" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>日志分析</a>
+    <div class="nav-group">交付</div>
+    <a class="nav-item"><svg class="ico" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>部署 · CI/CD</a>
+    <div class="nav-group">基础设施</div>
+    <a class="nav-item"><svg class="ico" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>主机与 K8s</a>
+    <div class="nav-group">管理</div>
+    <a class="nav-item"><svg class="ico" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>审计日志</a>
+    <a class="nav-item"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>权限与成员</a>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="scope"><svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>团队 <strong>支付平台</strong> · 集群 <strong>prod-bj</strong> · 环境 <strong>生产</strong></div>
+      <div class="spacer"></div>
+      <button class="icon-btn"><svg class="ico" viewBox="0 0 24 24"><polyline points="21 12 27 12 21 12"/><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 9 27 9"/></svg></button>
+      <button class="icon-btn"><svg class="ico" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></button>
+      <div class="avatar">SRE</div>
+    </header>
+
+    <main class="content">
+      <div class="page-head">
+        <div><div class="page-title">日志分析</div><div class="page-sub">支付平台 · prod-bj · 生产 · 数据源 Loki</div></div>
+        <div style="display:flex;gap:10px"><button class="btn">实时</button><button class="btn-primary btn"><svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>导出</button></div>
+      </div>
+
+      <div class="split">
+        <!-- 左侧 facet -->
+        <aside class="facet-box">
+          <div class="facet-group"><div class="facet-title">级别</div>
+            <label class="facet"><input type="checkbox" checked><span class="dot" style="background:var(--danger)"></span>ERROR<span class="cnt">312</span></label>
+            <label class="facet"><input type="checkbox" checked><span class="dot" style="background:var(--warn)"></span>WARN<span class="cnt">540</span></label>
+            <label class="facet"><input type="checkbox"><span class="dot" style="background:var(--muted)"></span>INFO<span class="cnt">18.2k</span></label>
+            <label class="facet"><input type="checkbox"><span class="dot" style="background:var(--meta)"></span>DEBUG<span class="cnt">42.1k</span></label>
+          </div>
+          <div class="facet-group"><div class="facet-title">服务</div>
+            <label class="facet"><input type="checkbox" checked>支付网关<span class="cnt">1.1k</span></label>
+            <label class="facet"><input type="checkbox">订单服务<span class="cnt">820</span></label>
+            <label class="facet"><input type="checkbox">库存服务<span class="cnt">640</span></label>
+            <label class="facet"><input type="checkbox">风控服务<span class="cnt">410</span></label>
+          </div>
+          <div class="facet-group"><div class="facet-title">环境</div>
+            <label class="facet"><input type="checkbox" checked>生产<span class="cnt">9.3k</span></label>
+            <label class="facet"><input type="checkbox">预发<span class="cnt">1.2k</span></label>
+          </div>
+          <div class="facet-group"><div class="facet-title">主机</div>
+            <label class="facet"><input type="checkbox">node-07<span class="cnt">220</span></label>
+            <label class="facet"><input type="checkbox">node-12<span class="cnt">180</span></label>
+          </div>
+        </aside>
+
+        <!-- 右侧日志流 -->
+        <section>
+          <div class="stream-box">
+            <div class="stream-bar">
+              <div class="qbar"><svg class="ico ico-sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>level:ERROR AND service:payment</div>
+              <button class="btn">保存检索</button>
+            </div>
+            <div class="query-chips">
+              <span class="qchip">level = ERROR</span><span class="qchip">service = payment</span><span class="qchip">time &gt; now-1h</span>
+            </div>
+            <div class="log-line"><span class="ts">09:42:11</span><span class="svc">payment-gw</span><span class="lv ERR">ERROR</span><span>upstream timeout calling inventory svc after 800ms (trace=7f2e1d)</span></div>
+            <div class="log-line"><span class="ts">09:42:09</span><span class="svc">payment-gw</span><span class="lv ERR">ERROR</span><span>circuit breaker OPEN for inventory cluster prod-bj</span></div>
+            <div class="log-line"><span class="ts">09:41:58</span><span class="svc">payment-gw</span><span class="lv WARN">WARN</span><span>p99 latency 812ms exceeds SLO 800ms (window=5m)</span></div>
+            <div class="log-line"><span class="ts">09:41:40</span><span class="svc">payment-gw</span><span class="lv WARN">WARN</span><span>retry 2/3 for order create request id=ord_8841</span></div>
+            <div class="log-line"><span class="ts">09:41:22</span><span class="svc">inventory</span><span class="lv ERR">ERROR</span><span>GC pause 640ms, heap pressure on node-07 (mem=91%)</span></div>
+            <div class="log-line"><span class="ts">09:41:10</span><span class="svc">inventory</span><span class="lv ERR">ERROR</span><span>connection pool exhausted: 200/200 active to redis-prod</span></div>
+            <div class="log-line"><span class="ts">09:40:55</span><span class="svc">payment-gw</span><span class="lv WARN">WARN</span><span>degraded mode: serving cached quotes for 3 SKUs</span></div>
+            <div class="log-line"><span class="ts">09:40:33</span><span class="svc">inventory</span><span class="lv WARN">WARN</span><span>slow query 1.2s on table stock_lock (tx=tx_552)</span></div>
+          </div>
+          <div class="note">配置优先检索：左侧 facet 勾选 + 顶部查询框（支持 `level: ERROR AND service: payment` 类语法）即可完成检索，无需写复杂查询；结果以等宽日志流呈现，级别用红/琥珀/灰双编码（颜色 + 文字，满足无障碍）。此为「日志分析」域最小闭环：检索 → 筛选 → 下钻(点击行查看上下文/链路)。</div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+</body>
+</html>

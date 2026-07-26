@@ -1,0 +1,14 @@
+NODE=v22.22.2
+NPM=10.9.7
+--- src/features ---
+access
+audit
+delivery
+home
+infrastructure
+logging
+login
+monitoring
+settings
+--- node_modules check ---
+node_modules OK

@@ -1,0 +1,6 @@
+# 排除仓库内预编译产物与本地标记，避免被 COPY . . 带入构建上下文
+opsconsole-server
+opsconsole-server~
+*.marker
+*.log
+.git

@@ -1,0 +1,49 @@
+=== GO FILES ===
+./cmd/api-server/main.go
+./cmd/api-server/router.go
+./internal/audit/audit.go
+./internal/audit/handlers.go
+./internal/audit/repository.go
+./internal/config/config.go
+./internal/model/model.go
+./internal/modules/deployment/controller.go
+./internal/modules/deployment/repository.go
+./internal/modules/deployment/service.go
+./internal/modules/infrastructure/controller.go
+./internal/modules/infrastructure/controller_exec.go
+./internal/modules/infrastructure/repository.go
+./internal/modules/infrastructure/service.go
+./internal/modules/logging/controller.go
+./internal/modules/logging/service.go
+./internal/modules/monitoring/controller.go
+./internal/modules/monitoring/repository.go
+./internal/modules/monitoring/service.go
+./internal/pkg/gitlab/adapter.go
+./internal/pkg/k8sclient/client.go
+./internal/pkg/opensearch/client.go
+./internal/pkg/query/query.go
+./internal/pkg/response/response.go
+./internal/pkg/victoriametrics/client.go
+./internal/platform/auth/auth.go
+./internal/platform/auth/controller.go
+./internal/platform/auth/jwt.go
+./internal/platform/auth/session.go
+./internal/platform/auth/session_redis.go
+./internal/platform/auth/userrepo.go
+./internal/platform/auth/userrepo_pg.go
+./internal/platform/middleware/middleware.go
+./internal/platform/pg/pg.go
+./internal/platform/rbac/assignment.go
+./internal/platform/rbac/rbac.go
+./internal/platform/store/memdb.go
+./internal/platform/tenant/context.go
+=== LINE COUNT MAX (must be <=300) ===
+ 2943 total
+  159 ./internal/modules/infrastructure/repository.go
+  154 ./internal/modules/monitoring/repository.go
+  133 ./internal/model/model.go
+  131 ./internal/platform/rbac/assignment.go
+TOTAL_LINES:
+2943
+=== OVER_300 CHECK ===
+OVER_CHECK_DONE

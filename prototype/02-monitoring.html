@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<!-- 统一运维控制台 · 高保真原型 · 监控告警域（含配置化告警规则）
+     图标: Lucide 风格内联 SVG 占位；配色: 全部 Design Token 变量。无 emoji / 无紫粉渐变。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>监控告警 · 统一运维控制台</title>
+<style>
+:root{--bg:#0B0E14;--surface:#121620;--surface-2:#1A1F2B;--surface-3:#232A38;--fg:#E6E9EF;--fg-2:#B4BACD;--muted:#7A8294;--meta:#565E6E;--accent:#1C8FE6;--accent-hover:#3AA0F0;--accent-active:#1577C2;--accent-on:#fff;--success:#2EA043;--warn:#E8A33D;--danger:#F85149;--border:rgba(255,255,255,.08);--border-soft:rgba(255,255,255,.05);--border-strong:rgba(255,255,255,.12);--font:"Geist","Inter","Noto Sans SC",system-ui,sans-serif;--mono:"Geist Mono","JetBrains Mono",ui-monospace,Menlo,monospace;--r-sm:6px;--r-md:8px;--r-lg:12px;--r-pill:9999px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);font-size:14px;line-height:1.5;background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased}
+.ico{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ico-sm{width:16px;height:16px}.ico-lg{width:24px;height:24px}
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:14px 10px;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh}
+.brand{display:flex;align-items:center;gap:9px;padding:6px 8px 14px;font-weight:600}
+.brand .logo{width:28px;height:28px;border-radius:var(--r-sm);background:linear-gradient(180deg,var(--accent-hover),var(--accent-active));display:grid;place-items:center;color:#fff}
+.nav-group{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--meta);padding:12px 8px 4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r-sm);color:var(--fg-2);text-decoration:none;font-size:14px;cursor:pointer}
+.nav-item:hover{background:var(--surface-2);color:var(--fg)}
+.nav-item.active{background:var(--surface-2);color:var(--fg);box-shadow:inset 2px 0 0 var(--accent)}
+.nav-item .badge{margin-left:auto}
+.main{display:flex;flex-direction:column;min-width:0}
+.topbar{display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(11,14,20,.82);backdrop-filter:blur(8px);z-index:5}
+.scope{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);font-size:13px;color:var(--fg-2)}
+.scope strong{color:var(--fg);font-weight:500}
+.search{flex:1;max-width:440px;display:flex;align-items:center;gap:8px;padding:7px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--muted);font-size:13px}
+.search .kbd{margin-left:auto;border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.spacer{flex:1}
+.icon-btn{width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--fg-2);position:relative;cursor:pointer}
+.icon-btn:hover{color:var(--fg);border-color:var(--border-strong)}
+.badge{font-size:11px;font-family:var(--mono);padding:1px 6px;border-radius:var(--r-pill);background:var(--surface-3);color:var(--fg-2)}
+.badge.danger{background:rgba(248,81,73,.16);color:#ff9b95}
+.avatar{width:32px;height:32px;border-radius:var(--r-pill);background:var(--surface-3);display:grid;place-items:center;font-size:12px;color:var(--fg-2);border:1px solid var(--border)}
+.content{padding:24px 20px 64px;max-width:1340px;width:100%}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px;gap:16px}
+.page-title{font-size:24px;font-weight:600;letter-spacing:-.02em}
+.page-sub{color:var(--muted);font-size:13px;margin-top:3px}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface);color:var(--fg);font-size:13px;font-family:var(--font);cursor:pointer}
+.btn:hover{border-color:var(--border-strong);background:var(--surface-2)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:var(--accent-on)}
+.btn-primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.seg{display:inline-flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-pill);padding:3px}
+.seg button{background:none;border:none;color:var(--muted);padding:5px 13px;border-radius:var(--r-pill);font-size:13px;cursor:pointer;font-family:var(--font)}
+.seg button.on{background:var(--surface-3);color:var(--fg)}
+.section{margin-top:24px}
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.section-title{font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--fg-2)}
+.grid{display:grid;gap:14px}
+.cards-2{grid-template-columns:repeat(2,1fr)}
+.cards-4{grid-template-columns:repeat(4,1fr)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px}
+.panel .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.panel .name{font-size:13px;color:var(--fg-2)}
+.panel .val{font-family:var(--mono);font-size:18px;font-weight:600}
+.chart{width:100%;height:84px;display:block;margin-top:6px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:2px 9px;border-radius:var(--r-pill);border:1px solid var(--border);color:var(--fg-2)}
+.chip.ok{color:#7ee2a8;background:rgba(46,160,67,.13);border-color:transparent}
+.chip.warn{color:#f0c074;background:rgba(232,163,61,.13);border-color:transparent}
+.chip.danger{color:#ff9b95;background:rgba(248,81,73,.15);border-color:transparent}
+.chip.info{color:#8ecbff;background:rgba(28,143,230,.14);border-color:transparent}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:9px 12px;border-bottom:1px solid var(--border)}
+td{padding:11px 12px;border-bottom:1px solid var(--border-soft);color:var(--fg-2)}
+tr:hover td{background:var(--surface-2)}
+.mono{font-family:var(--mono)}
+.sev{display:inline-flex;align-items:center;gap:6px;font-size:12px}
+.dot{width:8px;height:8px;border-radius:50%}
+/* 配置面板 */
+.drawer-wrap{position:fixed;top:0;right:0;bottom:0;width:420px;background:var(--bg);border-left:1px solid var(--border);z-index:20;padding:20px;overflow:auto;box-shadow:-20px 0 40px rgba(0,0,0,.4)}
+.drawer-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.drawer-head h3{font-size:16px;font-weight:600}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field label{font-size:12px;color:var(--muted)}
+.field input,.field select,.field textarea{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:9px 11px;color:var(--fg);font-family:var(--font);font-size:13px}
+.field input:focus,.field select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(28,143,230,.3)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.toggle-chip{font-size:12px;padding:5px 11px;border-radius:var(--r-pill);border:1px solid var(--border);background:var(--surface);color:var(--fg-2);cursor:pointer}
+.toggle-chip.on{background:rgba(28,143,230,.15);border-color:var(--accent);color:#bfe0ff}
+.note{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.6}
+.divider{height:1px;background:var(--border);margin:16px 0}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><span class="logo"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6z"/></svg></span>OpsConsole</div>
+    <a class="nav-item"><svg class="ico" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>运维首页</a>
+    <div class="nav-group">可观测</div>
+    <a class="nav-item active"><svg class="ico" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>监控告警<span class="badge danger">3</span></a>
+    <a class="nav-item"><svg class="ico" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>日志分析</a>
+    <div class="nav-group">交付</div>
+    <a class="nav-item"><svg class="ico" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>部署 · CI/CD</a>
+    <div class="nav-group">基础设施</div>
+    <a class="nav-item"><svg class="ico" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>主机与 K8s</a>
+    <div class="nav-group">管理</div>
+    <a class="nav-item"><svg class="ico" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>审计日志</a>
+    <a class="nav-item"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>权限与成员</a>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="scope"><svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>团队 <strong>支付平台</strong> · 集群 <strong>prod-bj</strong> · 环境 <strong>生产</strong></div>
+      <div class="search"><svg class="ico ico-sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>搜索指标、告警、面板…<span class="kbd">⌘K</span></div>
+      <div class="spacer"></div>
+      <div class="seg"><button>近 1h</button><button class="on">近 6h</button><button>近 24h</button></div>
+      <button class="btn"><svg class="ico ico-sm" viewBox="0 0 24 24"><polyline points="21 12 27 12 21 12" /><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 9 27 9"/></svg>刷新</button>
+      <button class="icon-btn"><svg class="ico" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></button>
+      <div class="avatar">SRE</div>
+    </header>
+
+    <main class="content">
+      <div class="page-head">
+        <div><div class="page-title">监控告警</div><div class="page-sub">支付平台 · prod-bj · 生产 · 仪表盘「核心服务黄金指标」</div></div>
+        <button class="btn-primary btn" onclick="document.getElementById('ruleDrawer').style.display='block'"><svg class="ico ico-sm" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>新建告警规则</button>
+      </div>
+
+      <!-- 仪表盘网格 -->
+      <div class="grid cards-4">
+        <div class="card panel"><div class="head"><span class="name">CPU 使用率</span><span class="chip ok">正常</span></div><div class="val">62%</div>
+          <svg class="chart" viewBox="0 0 200 84" preserveAspectRatio="none"><polyline points="0,60 25,55 50,58 75,40 100,46 125,30 150,38 175,28 200,34" fill="none" stroke="#3AA0F0" stroke-width="2"/><line x1="0" y1="20" x2="200" y2="20" stroke="#E8A33D" stroke-width="1" stroke-dasharray="4 4"/><text x="2" y="14" fill="#E8A33D" font-size="9" font-family="monospace">阈值 85%</text></svg></div>
+        <div class="card panel"><div class="head"><span class="name">内存使用率</span><span class="chip warn">注意</span></div><div class="val">71%</div>
+          <svg class="chart" viewBox="0 0 200 84" preserveAspectRatio="none"><polyline points="0,50 25,48 50,52 75,45 100,40 125,35 150,30 175,28 200,26" fill="none" stroke="#E8A33D" stroke-width="2"/></svg></div>
+        <div class="card panel"><div class="head"><span class="name">请求 QPS</span><span class="chip ok">正常</span></div><div class="val">8.4k</div>
+          <svg class="chart" viewBox="0 0 200 84" preserveAspectRatio="none"><polyline points="0,40 25,42 50,36 75,44 100,38 125,34 150,40 175,36 200,38" fill="none" stroke="#3AA0F0" stroke-width="2"/></svg></div>
+        <div class="card panel"><div class="head"><span class="name">错误率</span><span class="chip danger">严重</span></div><div class="val">1.8%</div>
+          <svg class="chart" viewBox="0 0 200 84" preserveAspectRatio="none"><polyline points="0,70 25,66 50,68 75,55 100,58 125,40 150,30 175,22 200,18" fill="none" stroke="#F85149" stroke-width="2"/><line x1="0" y1="64" x2="200" y2="64" stroke="#E8A33D" stroke-width="1" stroke-dasharray="4 4"/></svg></div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><div class="section-title">活跃告警（3）</div><div class="seg"><button class="on">全部</button><button>严重</button><button>我的</button></div></div>
+        <div class="card" style="padding:0">
+          <table>
+            <thead><tr><th>严重度</th><th>告警名称</th><th>资源</th><th>持续时间</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr><td><span class="sev"><span class="dot" style="background:var(--danger)"></span>严重</span></td><td>库存服务 P99 时延超阈值</td><td class="mono">svc/inventory</td><td class="mono">18m</td><td><span class="chip danger">触发中</span></td><td><button class="btn">查看</button></td></tr>
+              <tr><td><span class="sev"><span class="dot" style="background:var(--warn)"></span>警告</span></td><td>节点 node-07 内存压力</td><td class="mono">node/node-07</td><td class="mono">42m</td><td><span class="chip warn">触发中</span></td><td><button class="btn">查看</button></td></tr>
+              <tr><td><span class="sev"><span class="dot" style="background:var(--accent)"></span>提示</span></td><td>部署流水线 #2041 重试</td><td class="mono">pipe/deploy-payment</td><td class="mono">5m</td><td><span class="chip info">静默中</span></td><td><button class="btn">查看</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- 配置化告警规则面板（配置优先：UI 表单，少写 PromQL/YAML） -->
+<div class="drawer-wrap" id="ruleDrawer" style="display:none">
+  <div class="drawer-head"><h3>新建告警规则</h3><button class="icon-btn" onclick="document.getElementById('ruleDrawer').style.display='none'"><svg class="ico" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div class="field"><label>规则名称</label><input value="库存服务 P99 时延告警"></div>
+  <div class="row2">
+    <div class="field"><label>数据源</label><select><option>Prometheus · prod-bj</option><option>Loki · 日志</option></select></div>
+    <div class="field"><label>作用域</label><select><option>svc/inventory</option><option>全部服务</option></select></div>
+  </div>
+  <div class="field"><label>指标</label><select><option>histogram_quantile(0.99, ...) · P99 时延</option><option>rate(http_requests_total) · QPS</option><option>container_memory_usage · 内存</option></select></div>
+  <div class="row2">
+    <div class="field"><label>条件</label><select><option>大于 &gt;</option><option>小于 &lt;</option><option>不等于 ≠</option></select></div>
+    <div class="field"><label>阈值</label><input class="mono" value="800"></div>
+  </div>
+  <div class="row2">
+    <div class="field"><label>持续时间</label><input class="mono" value="5m"></div>
+    <div class="field"><label>严重度</label><select><option>严重</option><option>警告</option><option>提示</option></select></div>
+  </div>
+  <div class="field"><label>通知渠道</label><div class="chips"><span class="toggle-chip on">企业微信运维群</span><span class="toggle-chip on">电话(PagerDuty)</span><span class="toggle-chip">邮件</span><span class="toggle-chip">工单</span></div></div>
+  <div class="field"><label>静默期（重复抑制）</label><input class="mono" value="30m"></div>
+  <div class="divider"></div>
+  <details><summary style="cursor:pointer;color:var(--muted);font-size:13px">高级：直接编辑 PromQL</summary><div class="field" style="margin-top:10px"><textarea rows="3" class="mono">histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{service="inventory"}[5m])) by (le)) > 0.8</textarea></div></details>
+  <div class="note">配置优先：绝大多数规则用上方表单即可完成，无需手写 PromQL；仅高级场景展开编辑。保存后在「监控告警」首页即时生效并进入最小闭环（配置→触发→静默/处理）。</div>
+  <div style="display:flex;gap:10px;margin-top:16px"><button class="btn-primary btn" style="flex:1;justify-content:center" onclick="document.getElementById('ruleDrawer').style.display='none'">保存规则</button><button class="btn" style="flex:1;justify-content:center" onclick="document.getElementById('ruleDrawer').style.display='none'">取消</button></div>
+</div>
+</body>
+</html>
