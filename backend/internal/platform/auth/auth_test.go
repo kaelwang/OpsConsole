@@ -6,9 +6,39 @@ import (
 	"time"
 
 	"github.com/opsconsole/backend/internal/model"
-	"github.com/opsconsole/backend/internal/platform/store"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// ---- test stubs (test-only, no production in-memory mode) ----
+
+type stubUserRepo struct {
+	user       model.User
+	membership model.Membership
+}
+
+func (r *stubUserRepo) GetByEmail(_ context.Context, email string) (*model.User, error) {
+	if email == r.user.Email {
+		u := r.user
+		return &u, nil
+	}
+	return nil, ErrUserNotFound
+}
+
+func (r *stubUserRepo) GetMembership(_ context.Context, userID string) (*model.Membership, error) {
+	if userID == r.membership.UserID {
+		m := r.membership
+		return &m, nil
+	}
+	return nil, ErrUserNotFound
+}
+
+type stubSessionStore struct{ saved int }
+
+func (s *stubSessionStore) Save(_ context.Context, _, _, _ string) error {
+	s.saved++
+	return nil
+}
+func (s *stubSessionStore) Delete(_ context.Context, _ string) error { return nil }
 
 func TestBcryptHashVerify(t *testing.T) {
 	pw := "super-secret-123"
@@ -64,11 +94,16 @@ func TestJWTSignAndVerify(t *testing.T) {
 }
 
 func TestLoginHappyAndReject(t *testing.T) {
-	db := store.NewMemDB()
-	svc := NewService(NewMemUserRepo(db), NewMemStore(), "secret")
+	const password = "opsconsole123"
+	hash, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)
+	repo := &stubUserRepo{
+		user:       model.User{ID: "u-admin", Email: "admin@corp.com", PasswordHash: string(hash)},
+		membership: model.Membership{TenantID: "t-0001", UserID: "u-admin", Role: model.RoleOwner},
+	}
+	svc := NewService(repo, &stubSessionStore{}, "secret")
 	ctx := context.Background()
 
-	tok, err := svc.Login(ctx, "admin@corp.com", store.SeedPassword)
+	tok, err := svc.Login(ctx, "admin@corp.com", password)
 	if err != nil {
 		t.Fatalf("login should succeed: %v", err)
 	}

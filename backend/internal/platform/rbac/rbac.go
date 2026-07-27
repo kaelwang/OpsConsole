@@ -102,3 +102,35 @@ func RequirePermission(resource, action string, sink audit.Sink) gin.HandlerFunc
 func AssignableRoles() []model.Role {
 	return []model.Role{model.RoleOwner, model.RoleAdmin, model.RoleMember, model.RoleViewer}
 }
+
+// RoleView is the API view of a role's permission set (consumed by the frontend
+// RBAC role picker).
+type RoleView struct {
+	Role        string   `json:"role"`
+	RoleLabel   string   `json:"roleLabel"`
+	Permissions []string `json:"permissions"`
+}
+
+var roleLabels = map[model.Role]string{
+	model.RolePlatformAdmin: "平台管理员",
+	model.RoleOwner:         "租户所有者",
+	model.RoleAdmin:         "管理员",
+	model.RoleMember:        "成员",
+	model.RoleViewer:        "访客",
+}
+
+// ListRolesHandler returns the assignable roles together with their permission
+// sets. It backs GET /api/v1/rbac/roles.
+func ListRolesHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		out := make([]RoleView, 0, len(AssignableRoles()))
+		for _, r := range AssignableRoles() {
+			perms := make([]string, 0, len(rolePermissions[r]))
+			for _, p := range rolePermissions[r] {
+				perms = append(perms, p.resource+":"+p.action)
+			}
+			out = append(out, RoleView{Role: string(r), RoleLabel: roleLabels[r], Permissions: perms})
+		}
+		response.OK(c, out)
+	}
+}

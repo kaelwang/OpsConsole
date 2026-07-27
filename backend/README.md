@@ -14,7 +14,7 @@ Enterprise multi-tenant unified operations console — API server (Go).
 | Kubernetes | client-go v0.31 (K8s 1.31) |
 | Metrics | VictoriaMetrics PromQL proxy |
 | Logs | OpenSearch `_search` proxy |
-| CI/CD | GitLab REST v4 adapter (+ dev mock) |
+| CI/CD | GitLab REST v4 adapter |
 | Real-time | gorilla/websocket (log tail, pod exec) |
 
 ## Directory layout
@@ -40,7 +40,6 @@ backend/
       middleware/        # JWT auth, recovery, rate limit
       auth/              # login service, JWT, session + user repository
       audit/             # audit log repository + service (Sink interface)
-      store/             # in-memory seeded database
       pg/                # WithTenant RLS transaction helper
     modules/
       monitoring/        # metrics query, alert rules, notifications
@@ -69,21 +68,12 @@ PostgreSQL uses Row-Level Security. Every PG repository call wraps the query in
 `app.tenant_id` and `app.role` via `SET LOCAL` (transaction-scoped, so no leak
 across pooled connections). Cross-tenant access is rejected by the RLS policy.
 
-In memory mode the `store.MemDB` filters every read by the principal's
-`tenant_id`.
-
-## Dual repository (memory / PostgreSQL)
+## Repositories (PostgreSQL only)
 
 Every repository defines a Go interface (`UserRepository`, `AlertRuleRepository`,
-`ClusterRepository`, etc.). Two implementations are provided:
-
-- **In-memory** (`*memXxxRepo`, backed by `store.MemDB`) — selected by default,
-  no external services required.
-- **PostgreSQL** (`*pgXxxRepo`, backed by `pgxpool`) — selected when
-  `OPS_REPOSITORY_MODE=pg`.
-
-The server boots and serves the full core flow (login, RBAC, audit, proxy
-endpoints) with **no PostgreSQL** by using memory mode.
+`ClusterRepository`, etc.). A single PostgreSQL implementation (`*pgXxxRepo`,
+backed by `pgxpool`) is provided and is always used — there is no in-memory mode.
+`OPS_DATABASE_URL` is required at startup; the server exits if it is missing.
 
 ## Authentication & authorization
 
@@ -107,6 +97,7 @@ endpoints) with **no PostgreSQL** by using memory mode.
 | POST | `/api/v1/monitoring/alert-rules` | monitoring:write | create rule |
 | GET | `/api/v1/monitoring/notifications` | monitoring:read | list channels |
 | POST | `/api/v1/monitoring/notifications` | monitoring:write | create channel |
+| DELETE | `/api/v1/monitoring/notifications/:id` | monitoring:write | delete channel |
 | GET | `/api/v1/monitoring/alerts` | monitoring:read | active alerts (empty page in dev) |
 | GET | `/api/v1/logging/search` | logging:read | OpenSearch proxy |
 | GET | `/api/v1/logging/tail` | logging:read | WebSocket tail |
@@ -122,20 +113,18 @@ endpoints) with **no PostgreSQL** by using memory mode.
 
 ## How to run
 
-### Memory mode (default, no external services)
+### How to run (PostgreSQL required)
 
 ```bash
 cd backend
+export OPS_DATABASE_URL="postgres://user:pass@localhost:5432/opsconsole?sslmode=disable"
+export OPS_REDIS_URL="redis://localhost:6379/0"
+export OPS_JWT_SECRET="dev-insecure-secret-change-me"
 go run ./cmd/api-server
 ```
 
-Environment defaults:
-
-- `OPS_PORT=8080`
-- `OPS_REPOSITORY_MODE=memory`
-- `OPS_JWT_SECRET=dev-insecure-secret-change-me`
-
-Seeded credentials (memory mode):
+The server exits at startup if `OPS_DATABASE_URL` is unset. Seeded credentials
+(from `seed.sql`, idempotent):
 
 - admin:  `admin@corp.com`  / `opsconsole123`  (role: owner)
 - viewer: `viewer@corp.com` / `opsconsole123`  (role: viewer)
@@ -146,39 +135,33 @@ Example:
 curl -s -X POST localhost:8080/api/v1/login \
   -H 'Content-Type: application/json' \
   -d '{"email":"admin@corp.com","password":"opsconsole123"}'
-# => {"code":0,"data":{"access_token":"...","refresh_token":"...","expires_in":900}}
+# => {"code":0,"data":{"accessToken":"...","refreshToken":"...","expiresIn":900,"tenantId":"...","role":"owner"}}
 ```
 
-Then call a protected endpoint with the access token.
-
-### PostgreSQL mode
-
-```bash
-export OPS_REPOSITORY_MODE=pg
-export OPS_DATABASE_URL="postgres://user:pass@localhost:5432/opsconsole?sslmode=disable"
-export OPS_REDIS_URL="redis://localhost:6379/0"
-go run ./cmd/api-server
-```
-
-The schema (tables, RLS policies, `app.tenant_id`/`app.role` GUCs) is defined in
-`schema.sql` at the repository root. Apply it before starting in PG mode.
+PostgreSQL is mandatory; the server exits at startup if `OPS_DATABASE_URL` is
+unset. The schema (tables, RLS policies, `app.tenant_id`/`app.role` GUCs) is
+defined in `schema.sql` at the repository root; `seed.sql` seeds the default
+accounts and is mounted automatically by `docker-compose.yml`.
 
 ### Optional integrations
 
 - `OPS_VICTORIAMETRICS_URL` — enables `/monitoring/query` (otherwise returns 502).
 - `OPS_OPENSEARCH_URL` — enables `/logging/search` and `/logging/tail`.
-- `OPS_GITLAB_BASE_URL` + `OPS_GITLAB_TOKEN` — real GitLab CI/CD; otherwise a dev mock is used.
+- `OPS_GITLAB_BASE_URL` + `OPS_GITLAB_TOKEN` — real GitLab CI/CD; otherwise
+  `/deployment/pipelines` returns 502 (`cicd provider not configured`).
+- `OPS_VMALERT_URL` — enables `/monitoring/alerts` (active alerts evaluated by
+  vmalert against VictoriaMetrics); otherwise returns 502.
 - `OPS_KUBECONFIG` — enables live pod listing / exec via client-go service-account impersonation.
 
 ## Known limitations
 
-- In memory mode, metrics/logs/CI-CD return upstream errors unless the
-  corresponding `OPS_*` URL is supplied; the server never fabricates data.
-- Active alert events (`/monitoring/alerts`) return an empty page in memory mode.
+- Metrics/logs/CI-CD/alerts return upstream errors (502) unless the corresponding
+  `OPS_*` URL is supplied; the server never fabricates data.
+- Active alert events (`/monitoring/alerts`) are sourced from vmalert; with no
+  alert rules firing, the page shows an empty list.
 - Pod exec and pod listing require a real kubeconfig (`OPS_KUBECONFIG`); without it
-  they return a 502 explaining the client is unavailable in this mode.
-- PostgreSQL repositories are implemented and selected by `OPS_REPOSITORY_MODE=pg`
-  but are exercised only against a live database; the default CI/build path
-  validates the memory-mode code paths.
-- No automated test suite is included in this MVP scaffold; correctness is verified
+  they return a 502 explaining the client is unavailable.
+- Only the PostgreSQL repository is implemented; `OPS_DATABASE_URL` is mandatory.
+- Unit tests exist for `auth`, `audit`, `rbac`, `response`, and `tenant`; they use
+  in-process stubs and do not require a live database. Correctness is also verified
   by `gofmt`, `go vet`, and `go build`.

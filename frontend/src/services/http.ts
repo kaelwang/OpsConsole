@@ -1,5 +1,5 @@
 import axios, { AxiosError } from 'axios';
-import { API_BASE, TOKEN_STORAGE_KEY } from './config';
+import { API_BASE } from './config';
 import type { ApiEnvelope } from '@/types/api';
 
 /** 统一业务错误（携带后端 code / message） */
@@ -14,21 +14,15 @@ export class ApiError extends Error {
   }
 }
 
+// 令牌仅保存在内存中，刷新页面即失效 → 每次访问都必须重新登录
+let memoryToken: string | null = null;
+
 function getToken(): string | null {
-  try {
-    return localStorage.getItem(TOKEN_STORAGE_KEY);
-  } catch {
-    return null;
-  }
+  return memoryToken;
 }
 
 export function setToken(token: string | null) {
-  try {
-    if (token) localStorage.setItem(TOKEN_STORAGE_KEY, token);
-    else localStorage.removeItem(TOKEN_STORAGE_KEY);
-  } catch {
-    /* 忽略存储异常 */
-  }
+  memoryToken = token;
 }
 
 const http = axios.create({
@@ -85,6 +79,11 @@ export async function post<T>(
 ): Promise<T> {
   const resp = await http.post<ApiEnvelope<T>>(url, payload);
   return (resp.data as ApiEnvelope<T>).data;
+}
+
+/** DELETE：无响应体 */
+export async function del(url: string): Promise<void> {
+  await http.delete(url);
 }
 
 export default http;

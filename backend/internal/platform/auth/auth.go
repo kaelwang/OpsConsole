@@ -43,5 +43,11 @@ func (s *Service) Login(ctx context.Context, email, password string) (*model.Tok
 	if err := s.sessions.Save(ctx, refresh, u.ID, mem.TenantID); err != nil {
 		return nil, err
 	}
-	return &model.TokenResponse{AccessToken: access, RefreshToken: refresh, ExpiresIn: exp}, nil
+	return &model.TokenResponse{
+		AccessToken:  access,
+		RefreshToken: refresh,
+		ExpiresIn:    exp,
+		TenantID:     mem.TenantID,
+		Role:         string(mem.Role),
+	}, nil
 }

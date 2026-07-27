@@ -10,7 +10,7 @@ interface ScopeStore extends ScopeState {
   setScope: (p: Partial<ScopeState>) => void;
 }
 
-const DEFAULT: ScopeState = { team: 'all', cluster: 'cls-prod-sh', env: 'prod' };
+const DEFAULT: ScopeState = { team: 'all', cluster: '', env: 'prod' };
 
 function readInitial(): ScopeState {
   try {

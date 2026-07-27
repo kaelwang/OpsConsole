@@ -21,10 +21,24 @@ import { StatStrip } from './StatStrip';
 import { MetricGrid } from './MetricGrid';
 import { auditTag, deploymentTag, deploymentVar, severityIcon, severityVar, usageVar } from '@/components/status';
 import { listClusters } from '@/services/api/infrastructure';
-import { listAlerts } from '@/services/api/monitoring';
+import { listAlerts, queryMetrics } from '@/services/api/monitoring';
 import { listPipelines, listRecentDeployments } from '@/services/api/deployment';
 import { listAudit } from '@/services/api/audit';
-import type { AuditLog } from '@/types/api';
+import type { AuditLog, QueryResult } from '@/types/api';
+
+// 实时利用率（即时向量查询，数据源 VictoriaMetrics）
+const UTIL_EXPRS = [
+  { label: 'CPU 使用率', expr: '100 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100' },
+  { label: '内存使用率', expr: '(1 - sum(node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes)) * 100' },
+  { label: '磁盘使用率', expr: 'max((1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"}) * 100)' },
+];
+
+function instantValue(res: QueryResult): number {
+  const item = res.data?.result?.[0];
+  if (item?.value) return Number(item.value[1]) || 0;
+  const last = item?.values?.slice(-1)[0];
+  return last ? Number(last[1]) || 0 : 0;
+}
 
 const fmt = (iso: string) =>
   new Date(iso).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -38,14 +52,22 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 }
 
 export function HomePage() {
-  const [range, setRange] = useState('24h');
+  const [range, setRange] = useState('1h');
   const [auditSel, setAuditSel] = useState<AuditLog | null>(null);
 
   const clustersQ = useQuery({ queryKey: ['clusters'], queryFn: listClusters });
   const alertsQ = useQuery({ queryKey: ['alerts', 'home'], queryFn: () => listAlerts({ page: 1, limit: 20 }) });
-  const pipelinesQ = useQuery({ queryKey: ['pipelines'], queryFn: listPipelines });
+  const pipelinesQ = useQuery({ queryKey: ['pipelines'], queryFn: () => listPipelines() });
   const deploysQ = useQuery({ queryKey: ['deployments', 'recent'], queryFn: listRecentDeployments });
   const auditQ = useQuery({ queryKey: ['audit', 'home'], queryFn: () => listAudit({ page: 1, limit: 8 }) });
+  const utilQ = useQuery({
+    queryKey: ['home-util'],
+    queryFn: async () => {
+      const res = await Promise.all(UTIL_EXPRS.map((u) => queryMetrics(u.expr)));
+      return res.map(instantValue);
+    },
+    refetchInterval: 60_000,
+  });
 
   const loading = clustersQ.isLoading || alertsQ.isLoading || pipelinesQ.isLoading || deploysQ.isLoading || auditQ.isLoading;
   const clusters = clustersQ.data ?? [];
@@ -55,30 +77,30 @@ export function HomePage() {
   const audit = auditQ.data?.items ?? [];
 
   const util = useMemo(
-    () => [
-      { label: 'CPU 使用率', pct: 63 },
-      { label: '内存使用率', pct: 71 },
-      { label: '磁盘使用率', pct: 44 },
-    ],
-    [],
+    () =>
+      UTIL_EXPRS.map((u, i) => ({
+        label: u.label,
+        pct: Math.round(utilQ.data?.[i] ?? 0),
+      })),
+    [utilQ.data],
   );
 
   const auditCols = [
     { title: '时间', dataIndex: 'createdAt', width: 110, render: (v: string) => <span className="mono" style={{ color: 'var(--meta)', fontSize: 'var(--font-size-xs)' }}>{fmt(v)}</span> },
     {
       title: '操作者',
-      dataIndex: 'actorName',
-      width: 120,
+      dataIndex: 'userId',
+      width: 150,
       render: (v: string) => (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <UserIcon size={14} style={{ color: 'var(--muted)' }} />
-          <span style={{ fontSize: 'var(--font-size-sm)' }}>{v}</span>
+          <span className="mono" style={{ fontSize: 'var(--font-size-xs)' }}>{v}</span>
         </span>
       ),
     },
     { title: '动作', dataIndex: 'action', width: 150, render: (v: string) => <Tag style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{v}</Tag> },
-    { title: '对象', dataIndex: 'object', render: (v: string) => <span className="mono" style={{ fontSize: 'var(--font-size-sm)', color: 'var(--fg-2)' }}>{v}</span> },
-    { title: '结果', dataIndex: 'result', width: 90, render: (v: AuditLog['result']) => auditTag(v) },
+    { title: '对象', dataIndex: 'resource', render: (v: string) => <span className="mono" style={{ fontSize: 'var(--font-size-sm)', color: 'var(--fg-2)' }}>{v}</span> },
+    { title: '结果', dataIndex: 'ok', width: 90, render: (v: boolean) => auditTag(v ? 'success' : 'failure') },
   ];
 
   return (
@@ -105,7 +127,7 @@ export function HomePage() {
 
         <div>
           <SectionTitle>关键指标</SectionTitle>
-          <MetricGrid points={range === '1h' ? 16 : range === '6h' ? 24 : range === '24h' ? 32 : 56} />
+          <MetricGrid rangeSec={range === '1h' ? 3600 : range === '6h' ? 21600 : range === '24h' ? 86400 : 604800} />
         </div>
 
         <Row gutter={[16, 16]}>
@@ -128,7 +150,7 @@ export function HomePage() {
                         title={<span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--fg)' }}>{a.summary}</span>}
                         description={
                           <span className="mono" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--meta)' }}>
-                            {a.labels.cluster ?? a.labels.namespace ?? '—'} · {fmt(a.firedAt)}
+                            {a.labels?.instance ?? a.labels?.cluster ?? a.labels?.namespace ?? '—'} · {fmt(a.firedAt)}
                           </span>
                         }
                       />
@@ -153,9 +175,9 @@ export function HomePage() {
                     color: deploymentVar(d.status),
                     children: (
                       <div style={{ fontSize: 'var(--font-size-sm)' }}>
-                        <span className="mono" style={{ color: 'var(--fg)' }}>{d.version}</span>
+                        <span className="mono" style={{ color: 'var(--fg)' }}>{d.name}</span>
                         <span style={{ color: 'var(--muted)', margin: '0 6px' }}>·</span>
-                        <span style={{ color: 'var(--fg-2)' }}>{d.pipelineId}</span>
+                        <span className="mono" style={{ color: 'var(--fg-2)' }}>{d.ref}</span>
                         <div style={{ color: 'var(--meta)', fontSize: 'var(--font-size-xs)', marginTop: 2 }}>{fmt(d.createdAt)}</div>
                       </div>
                     ),
@@ -218,16 +240,12 @@ export function HomePage() {
       >
         {auditSel && (
           <Descriptions column={1} bordered size="small">
-            <Descriptions.Item label="操作者">{auditSel.actorName}（{auditSel.actorId}）</Descriptions.Item>
-            <Descriptions.Item label="模拟身份">{auditSel.impersonatedAs ?? '—'}</Descriptions.Item>
+            <Descriptions.Item label="操作者"><span className="mono">{auditSel.userId}</span></Descriptions.Item>
             <Descriptions.Item label="动作"><Tag style={{ fontFamily: 'var(--font-mono)' }}>{auditSel.action}</Tag></Descriptions.Item>
-            <Descriptions.Item label="对象"><span className="mono">{auditSel.object}</span></Descriptions.Item>
-            <Descriptions.Item label="结果">{auditTag(auditSel.result)}</Descriptions.Item>
+            <Descriptions.Item label="对象"><span className="mono">{auditSel.resource}</span></Descriptions.Item>
+            <Descriptions.Item label="结果">{auditTag(auditSel.ok ? 'success' : 'failure')}</Descriptions.Item>
             <Descriptions.Item label="时间"><span className="mono">{fmt(auditSel.createdAt)}</span></Descriptions.Item>
-            <Descriptions.Item label="IP">{auditSel.ip ?? '—'}</Descriptions.Item>
-            <Descriptions.Item label="变更前">{auditSel.before ?? '—'}</Descriptions.Item>
-            <Descriptions.Item label="变更后">{auditSel.after ?? '—'}</Descriptions.Item>
-            <Descriptions.Item label="User-Agent"><span className="mono" style={{ fontSize: 'var(--font-size-xs)' }}>{auditSel.userAgent ?? '—'}</span></Descriptions.Item>
+            <Descriptions.Item label="详情"><span className="mono" style={{ fontSize: 'var(--font-size-xs)' }}>{auditSel.detail || '—'}</span></Descriptions.Item>
           </Descriptions>
         )}
       </Drawer>

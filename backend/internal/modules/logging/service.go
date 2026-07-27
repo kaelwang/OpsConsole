@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 
 	"github.com/opsconsole/backend/internal/audit"
+	"github.com/opsconsole/backend/internal/model"
 	"github.com/opsconsole/backend/internal/pkg/opensearch"
 )
 
@@ -23,8 +25,8 @@ func NewService(os *opensearch.Client, audit audit.Sink) *Service {
 	return &Service{os: os, audit: audit}
 }
 
-// Search builds an OpenSearch DSL query and executes it against the tenant index.
-func (s *Service) Search(ctx context.Context, tenantID, query, level, service, from, to string, page, limit int) (json.RawMessage, error) {
+// Search builds an OpenSearch DSL query and returns normalized log entries.
+func (s *Service) Search(ctx context.Context, tenantID, query, level, service, from, to string, page, limit int) ([]model.LogEntry, error) {
 	if s.os == nil {
 		return nil, ErrUpstreamUnavailable
 	}
@@ -67,5 +69,44 @@ func (s *Service) Search(ctx context.Context, tenantID, query, level, service, f
 			{"@timestamp": map[string]interface{}{"order": "desc"}},
 		},
 	}
-	return s.os.Search(ctx, index, body)
+	raw, err := s.os.Search(ctx, index, body)
+	if err != nil {
+		return nil, err
+	}
+	return mapHits(raw)
+}
+
+// mapHits extracts _source documents from an OpenSearch _search response and
+// normalizes them into LogEntry values consumable by the frontend.
+func mapHits(raw json.RawMessage) ([]model.LogEntry, error) {
+	var resp struct {
+		Hits struct {
+			Hits []struct {
+				Source map[string]interface{} `json:"_source"`
+			} `json:"hits"`
+		} `json:"hits"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return nil, err
+	}
+	out := make([]model.LogEntry, 0, len(resp.Hits.Hits))
+	for _, h := range resp.Hits.Hits {
+		out = append(out, model.LogEntry{
+			Timestamp: firstString(h.Source["@timestamp"], h.Source["timestamp"]),
+			Level:     strings.ToLower(firstString(h.Source["level"])),
+			Service:   firstString(h.Source["service"]),
+			Message:   firstString(h.Source["message"]),
+		})
+	}
+	return out, nil
+}
+
+// firstString returns the first argument that is a string, else empty.
+func firstString(vals ...interface{}) string {
+	for _, v := range vals {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return ""
 }

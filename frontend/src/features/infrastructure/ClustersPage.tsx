@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -60,8 +60,16 @@ export function ClustersPage() {
   const [tab, setTab] = useState('topo');
 
   const clustersQ = useQuery({ queryKey: ['clusters'], queryFn: listClusters });
-  const podsQ = useQuery({ queryKey: ['pods', activeCluster], queryFn: () => listPods(activeCluster) });
+  const podsQ = useQuery({ queryKey: ['pods', activeCluster], queryFn: () => listPods(activeCluster), enabled: !!activeCluster });
   const hostsQ = useQuery({ queryKey: ['hosts'], queryFn: listHosts });
+
+  // 若当前作用域中的集群不存在（或为空），自动选中第一个真实集群
+  useEffect(() => {
+    const list = clustersQ.data ?? [];
+    if (list.length && !list.some((c) => c.id === activeCluster)) {
+      setScope({ cluster: list[0].id });
+    }
+  }, [clustersQ.data, activeCluster, setScope]);
 
   const clusters = clustersQ.data ?? [];
   const pods = podsQ.data ?? [];
@@ -82,8 +90,8 @@ export function ClustersPage() {
   }, [pods]);
 
   const regCluster = useMutation({
-    mutationFn: (v: { name: string; kubeconfigRef: string; saName: string }) => registerCluster(v),
-    onSuccess: () => { message.success('集群已注册（已绑定 SA + impersonation）'); setRegOpen(false); qc.invalidateQueries({ queryKey: ['clusters'] }); },
+    mutationFn: (v: { name: string; provider?: string; kubeconfig?: string }) => registerCluster(v),
+    onSuccess: () => { message.success('集群已注册（已记审计）'); setRegOpen(false); qc.invalidateQueries({ queryKey: ['clusters'] }); },
     onError: (e: Error) => message.error(e.message),
   });
 
@@ -92,7 +100,7 @@ export function ClustersPage() {
     { title: '命名空间', dataIndex: 'namespace', width: 130, render: (v: string) => <Tag style={{ fontSize: 11 }}>{v}</Tag> },
     { title: '节点', dataIndex: 'node', width: 110, render: (v: string) => <span className="mono" style={{ fontSize: 'var(--font-size-sm)', color: 'var(--muted)' }}>{v}</span> },
     { title: '状态', dataIndex: 'status', width: 130, render: (v: string) => <PodTag status={v} /> },
-    { title: '重启', dataIndex: 'restarts', width: 70, render: (v: number) => <span className="mono" style={{ color: v > 3 ? 'var(--warn)' : 'var(--muted)' }}>{v}</span> },
+    { title: '重启', dataIndex: 'restarts', width: 70, render: (v?: number) => <span className="mono" style={{ color: (v ?? 0) > 3 ? 'var(--warn)' : 'var(--muted)' }}>{v ?? '—'}</span> },
     { title: '年龄', dataIndex: 'age', width: 90, render: (v: string) => <span className="mono" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--meta)' }}>{v}</span> },
     {
       title: '操作',
@@ -101,7 +109,6 @@ export function ClustersPage() {
         <Space size={4}>
           <Button type="text" size="small" icon={<ScrollText size={16} />} onClick={() => navigate('/observability/logs')} />
           <Button type="text" size="small" icon={<Terminal size={16} />} onClick={() => setTerm(p)} />
-          <Button type="text" size="small" icon={<RotateCw size={16} />} style={{ color: 'var(--warn)' }} onClick={() => { message.success(`已重启 ${p.name}（已记审计）`); }} />
         </Space>
       ),
     },
@@ -192,24 +199,16 @@ export function ClustersPage() {
             style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', marginTop: 'var(--space-4)' }}
           >
             <Row gutter={[24, 16]}>
+              {hosts.length === 0 && <Col span={24}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无主机" /></Col>}
               {hosts.map((h) => (
                 <Col xs={24} md={12} key={h.id}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <HardDrive size={16} style={{ color: 'var(--muted)' }} />
-                    <span className="mono" style={{ fontSize: 'var(--font-size-sm)', color: 'var(--fg)' }}>{h.ip}</span>
+                    <span className="mono" style={{ fontSize: 'var(--font-size-sm)', color: 'var(--fg)' }}>{h.name || h.ip}</span>
+                    <span className="mono" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--meta)' }}>{h.ip}</span>
                     <span style={{ color: 'var(--meta)', fontSize: 'var(--font-size-xs)', marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <HeartPulse size={12} style={{ color: h.status === 'online' ? 'var(--success)' : 'var(--danger)' }} /> {h.os}
+                      <HeartPulse size={12} style={{ color: h.status === 'online' ? 'var(--success)' : 'var(--danger)' }} /> {h.os || '—'} · {h.status}
                     </span>
-                  </div>
-                  <div style={{ display: 'flex', gap: 'var(--space-4)' }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--muted)', marginBottom: 2 }}>CPU {h.cpu ?? 0}%</div>
-                      <Progress percent={h.cpu ?? 0} strokeColor={usageVar(h.cpu ?? 0)} showInfo={false} strokeWidth={6} />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--muted)', marginBottom: 2 }}>内存 {h.memory ?? 0}%</div>
-                      <Progress percent={h.memory ?? 0} strokeColor={usageVar(h.memory ?? 0)} showInfo={false} strokeWidth={6} />
-                    </div>
                   </div>
                 </Col>
               ))}
@@ -240,7 +239,6 @@ export function ClustersPage() {
             <Space style={{ marginTop: 'var(--space-4)' }}>
               <Button icon={<Terminal size={16} />} onClick={() => setTerm(selectedPod)}>终端</Button>
               <Button icon={<ScrollText size={16} />} onClick={() => navigate('/observability/logs')}>日志</Button>
-              <Button danger icon={<RotateCw size={16} />} onClick={() => { message.success(`已重启 ${selectedPod.name}（已记审计）`); setSelectedPod(null); }}>重启</Button>
             </Space>
           </>
         )}
@@ -258,17 +256,17 @@ export function ClustersPage() {
         <Form
           id="reg-form"
           layout="vertical"
-          onFinish={(v) => regCluster.mutate({ name: v.name, kubeconfigRef: v.kubeconfigRef, saName: v.saName })}
+          onFinish={(v) => regCluster.mutate({ name: v.name, provider: v.provider, kubeconfig: v.kubeconfig })}
         >
           <button id="reg-form-submit" type="submit" style={{ display: 'none' }} form="reg-form" />
           <Form.Item name="name" label="集群名称" rules={[{ required: true, message: '请输入集群名称' }]}>
             <Input placeholder="prod-shanghai" />
           </Form.Item>
-          <Form.Item name="kubeconfigRef" label="kubeconfig 引用" rules={[{ required: true, message: '请输入密钥引用' }]}>
-            <Input className="mono" placeholder="secret://vault/k8s/prod-sh" />
+          <Form.Item name="provider" label="提供商">
+            <Input placeholder="self-hosted / tke / eks" />
           </Form.Item>
-          <Form.Item name="saName" label="服务账号（impersonation）" rules={[{ required: true, message: '请输入 SA 名称' }]}>
-            <Input className="mono" placeholder="ops-impersonator" />
+          <Form.Item name="kubeconfig" label="kubeconfig 引用">
+            <Input className="mono" placeholder="secret://vault/k8s/prod-sh" />
           </Form.Item>
         </Form>
       </Modal>

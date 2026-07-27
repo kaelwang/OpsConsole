@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { TOKEN_STORAGE_KEY } from '@/services/config';
 import { setToken } from '@/services/http';
 import type { RoleName, TokenResponse } from '@/types/api';
 
@@ -11,18 +10,9 @@ interface AuthState {
   logout: () => void;
 }
 
-function readInitial(): { token: string | null } {
-  try {
-    return { token: localStorage.getItem(TOKEN_STORAGE_KEY) };
-  } catch {
-    return { token: null };
-  }
-}
-
-const init = readInitial();
-
 export const useAuthStore = create<AuthState>((set) => ({
-  token: init.token,
+  // 不持久化令牌：刷新页面即丢失登录态，强制每次重新登录
+  token: null,
   email: null,
   role: null,
   setSession: (t, email) => {

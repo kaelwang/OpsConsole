@@ -37,7 +37,7 @@ func (s *Service) SearchHandler(c *gin.Context) {
 		response.Timeout(c, "log query failed")
 		return
 	}
-	response.OK(c, json.RawMessage(data))
+	response.OK(c, data)
 }
 
 // TailHandler streams new log lines over a WebSocket, polling every 2s.
@@ -63,7 +63,11 @@ func (s *Service) TailHandler(c *gin.Context) {
 			if err != nil {
 				continue
 			}
-			_ = ws.WriteMessage(websocket.TextMessage, data)
+			b, err := json.Marshal(data)
+			if err != nil {
+				continue
+			}
+			_ = ws.WriteMessage(websocket.TextMessage, b)
 		}
 	}
 }

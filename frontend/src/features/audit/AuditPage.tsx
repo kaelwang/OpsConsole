@@ -21,10 +21,19 @@ import type { AuditLog } from '@/types/api';
 const fmt = (iso: string) =>
   new Date(iso).toLocaleString('zh-CN', { hour12: false });
 
-const ACTIONS = [
-  'login.success', 'role.assign', 'cluster.register', 'pipeline.trigger',
-  'pipeline.rollback', 'pod.restart', 'alertrule.create', 'channel.create', 'scope.switch',
-];
+function exportCsv(logs: AuditLog[]) {
+  const esc = (s: unknown) => `"${String(s ?? '').replace(/"/g, '""')}"`;
+  const rows = [
+    'createdAt,userId,action,resource,ok,detail',
+    ...logs.map((l) => [l.createdAt, l.userId, l.action, l.resource, l.ok, l.detail].map(esc).join(',')),
+  ];
+  const blob = new Blob(['\uFEFF' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `audit-${new Date().toISOString().slice(0, 19)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 
 export function AuditPage() {
   const [q, setQ] = useState('');
@@ -35,47 +44,49 @@ export function AuditPage() {
   const [sel, setSel] = useState<AuditLog | null>(null);
 
   const auditQ = useQuery({
-    queryKey: ['audit', 'page', page, q, actorId, action],
-    queryFn: () => listAudit({ page, limit: 20, q: q || undefined, actorId }),
+    queryKey: ['audit', 'page', page],
+    queryFn: () => listAudit({ page, limit: 20 }),
   });
 
-  const data = auditQ.data?.items ?? [];
+  const raw = auditQ.data?.items ?? [];
+  // 客户端二次过滤（后端分页 + 前端过滤当前页）
+  const data = useMemo(
+    () =>
+      raw.filter((d) => {
+        if (q && !`${d.action} ${d.resource} ${d.userId} ${d.detail}`.toLowerCase().includes(q.toLowerCase())) return false;
+        if (actorId && d.userId !== actorId) return false;
+        if (action && d.action !== action) return false;
+        return true;
+      }),
+    [raw, q, actorId, action],
+  );
   const actorOptions = useMemo(() => {
-    const map = new Map<string, string>();
-    data.forEach((d) => map.set(d.actorId, d.actorName));
-    return Array.from(map.entries()).map(([id, name]) => ({ value: id, label: `${name}（${id}）` }));
-  }, [data]);
+    const set = new Set<string>();
+    raw.forEach((d) => set.add(d.userId));
+    return [...set].map((id) => ({ value: id, label: id }));
+  }, [raw]);
+  const actionOptions = useMemo(() => {
+    const set = new Set<string>();
+    raw.forEach((d) => set.add(d.action));
+    return [...set].sort().map((a) => ({ value: a, label: a }));
+  }, [raw]);
 
   const columns: any[] = [
     { title: '时间', dataIndex: 'createdAt', width: 150, render: (v: string) => <span className="mono" style={{ color: 'var(--meta)', fontSize: 'var(--font-size-xs)' }}>{fmt(v)}</span> },
     {
       title: '操作者',
-      dataIndex: 'actorName',
-      width: 170,
-      render: (v: string, r: AuditLog) => (
+      dataIndex: 'userId',
+      width: 200,
+      render: (v: string) => (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <UserIcon size={14} style={{ color: 'var(--muted)' }} />
-          <span style={{ fontSize: 'var(--font-size-sm)' }}>{v}</span>
-          <span className="mono" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--meta)' }}>{r.actorId}</span>
+          <span className="mono" style={{ fontSize: 'var(--font-size-xs)' }}>{v}</span>
         </span>
       ),
     },
-    {
-      title: '模拟身份',
-      dataIndex: 'impersonatedAs',
-      width: 150,
-      render: (v?: string) =>
-        v ? (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--fg-2)', fontSize: 'var(--font-size-sm)' }}>
-            <UserCog size={14} style={{ color: 'var(--muted)' }} /> {v}
-          </span>
-        ) : (
-          <span style={{ color: 'var(--meta)' }}>—</span>
-        ),
-    },
     { title: '动作', dataIndex: 'action', width: 150, render: (v: string) => <Tag style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{v}</Tag> },
-    { title: '对象', dataIndex: 'object', render: (v: string) => <span className="mono" style={{ fontSize: 'var(--font-size-sm)', color: 'var(--fg-2)' }}>{v}</span> },
-    { title: '结果', dataIndex: 'result', width: 90, render: (v: AuditLog['result']) => auditTag(v) },
+    { title: '对象', dataIndex: 'resource', render: (v: string) => <span className="mono" style={{ fontSize: 'var(--font-size-sm)', color: 'var(--fg-2)' }}>{v}</span> },
+    { title: '结果', dataIndex: 'ok', width: 90, render: (v: boolean) => auditTag(v ? 'success' : 'failure') },
     {
       title: '',
       width: 48,
@@ -93,7 +104,7 @@ export function AuditPage() {
         icon={<History size={22} style={{ color: 'var(--muted)' }} />}
         extra={
           <Space>
-            <Button icon={<Download size={16} />} onClick={() => alert('已导出当前筛选结果为 CSV（演示）')}>导出</Button>
+            <Button icon={<Download size={16} />} disabled={data.length === 0} onClick={() => exportCsv(data)}>导出 CSV</Button>
             <Button icon={<RefreshCw size={16} />} onClick={() => auditQ.refetch()}>刷新</Button>
           </Space>
         }
@@ -106,7 +117,7 @@ export function AuditPage() {
         <Space wrap size="small">
           <Input prefix={<Search size={16} />} placeholder="搜索动作 / 对象 / 操作者" allowClear value={q} onChange={(e) => setQ(e.target.value)} onPressEnter={() => setPage(1)} style={{ width: 240 }} />
           <Select placeholder="操作者" allowClear style={{ minWidth: 180 }} value={actorId} onChange={(v) => { setActorId(v); setPage(1); }} options={actorOptions} />
-          <Select placeholder="动作" allowClear style={{ minWidth: 160 }} value={action} onChange={(v) => { setAction(v); setPage(1); }} options={ACTIONS.map((a) => ({ value: a, label: a }))} />
+          <Select placeholder="动作" allowClear style={{ minWidth: 160 }} value={action} onChange={(v) => { setAction(v); setPage(1); }} options={actionOptions} />
           <DatePicker.RangePicker
             value={range}
             onChange={(v) => setRange(v as [dayjs.Dayjs, dayjs.Dayjs] | null)}
@@ -149,19 +160,13 @@ export function AuditPage() {
       >
         {sel && (
           <div className="mono" style={{ fontSize: 'var(--font-size-sm)', lineHeight: 1.9 }}>
-            <div style={{ color: 'var(--meta)' }}>操作者：{sel.actorName}（{sel.actorId}）</div>
-            <div style={{ color: 'var(--meta)' }}>模拟身份：{sel.impersonatedAs ?? '—'}</div>
+            <div style={{ color: 'var(--meta)' }}>操作者：{sel.userId}</div>
             <div style={{ color: 'var(--meta)' }}>动作：<Tag style={{ fontFamily: 'var(--font-mono)' }}>{sel.action}</Tag></div>
-            <div style={{ color: 'var(--meta)' }}>对象：{sel.object}</div>
-            <div style={{ color: 'var(--meta)' }}>结果：{sel.result}</div>
+            <div style={{ color: 'var(--meta)' }}>对象：{sel.resource}</div>
+            <div style={{ color: 'var(--meta)' }}>结果：{sel.ok ? '成功' : '失败'}</div>
             <div style={{ color: 'var(--meta)' }}>时间：{fmt(sel.createdAt)}</div>
-            <div style={{ color: 'var(--meta)' }}>IP：{sel.ip ?? '—'}</div>
-            <div style={{ color: 'var(--meta)' }}>User-Agent：{sel.userAgent ?? '—'}</div>
             <div style={{ marginTop: 'var(--space-3)', color: 'var(--fg)' }}>
-              变更前：<span style={{ color: 'var(--danger)' }}>{sel.before ?? '—'}</span>
-            </div>
-            <div style={{ color: 'var(--fg)' }}>
-              变更后：<span style={{ color: 'var(--success)' }}>{sel.after ?? '—'}</span>
+              详情：<span style={{ color: 'var(--fg-2)' }}>{sel.detail || '—'}</span>
             </div>
           </div>
         )}

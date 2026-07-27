@@ -2,6 +2,7 @@ import { App as AntdApp, ConfigProvider, theme as antdTheme } from 'antd';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import tokens from '@/design-tokens.json';
 import { useThemeStore } from '@/stores/theme';
+import { useAuthStore } from '@/stores/auth';
 import { AppShell } from '@/layouts/AppShell';
 import { LoginPage } from '@/features/login/LoginPage';
 import { HomePage } from '@/features/home/HomePage';
@@ -72,12 +73,26 @@ function AntdThemeBridge({ children }: { children: React.ReactNode }) {
   );
 }
 
+// 路由守卫：未登录（无内存令牌）一律重定向到登录页，刷新后强制重新登录
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  const token = useAuthStore((s) => s.token);
+  if (!token) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
 export function App() {
   return (
     <AntdThemeBridge>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/" element={<AppShell />}>
+        <Route
+          path="/"
+          element={
+            <RequireAuth>
+              <AppShell />
+            </RequireAuth>
+          }
+        >
           <Route index element={<HomePage />} />
           <Route path="observability/metrics" element={<MonitoringPage />} />
           <Route path="observability/logs" element={<LogsPage />} />

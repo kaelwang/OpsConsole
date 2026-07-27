@@ -194,7 +194,7 @@ export function LoginPage() {
           </Form>
 
           <p style={{ color: 'var(--meta)', fontSize: 'var(--font-size-xs)', marginTop: 'var(--space-5)', textAlign: 'center' }}>
-            演示环境：任意邮箱 + 8 位以上密码即可登录（mock 模式）
+            请使用企业账号登录，如无账号请联系平台管理员开通
           </p>
         </Card>
       </div>

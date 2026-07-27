@@ -5,13 +5,26 @@ import (
 	"testing"
 
 	"github.com/opsconsole/backend/internal/model"
-	"github.com/opsconsole/backend/internal/platform/store"
 	"github.com/opsconsole/backend/internal/platform/tenant"
 )
 
+// stubRepo captures written audit entries (test-only stub, not a runtime mode).
+type stubRepo struct {
+	entries []model.AuditLog
+}
+
+func (r *stubRepo) Write(_ context.Context, entry model.AuditLog) error {
+	r.entries = append(r.entries, entry)
+	return nil
+}
+
+func (r *stubRepo) List(_ context.Context, _, _ int) ([]model.AuditLog, int, error) {
+	return r.entries, len(r.entries), nil
+}
+
 func TestAuditRecordsActorFromContext(t *testing.T) {
-	db := store.NewMemDB()
-	svc := NewService(NewMemRepository(db))
+	repo := &stubRepo{}
+	svc := NewService(repo)
 	ctx := tenant.WithPrincipal(context.Background(), tenant.Principal{
 		UserID: "u-actor", TenantID: "t-act", Role: model.RoleOwner,
 	})
@@ -24,10 +37,10 @@ func TestAuditRecordsActorFromContext(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if len(db.Audit) != 1 {
-		t.Fatalf("want 1 audit entry got %d", len(db.Audit))
+	if len(repo.entries) != 1 {
+		t.Fatalf("want 1 audit entry got %d", len(repo.entries))
 	}
-	e := db.Audit[0]
+	e := repo.entries[0]
 	if e.UserID != "u-actor" || e.TenantID != "t-act" {
 		t.Fatalf("actor not recorded from context: %+v", e)
 	}
@@ -42,7 +55,7 @@ func TestAuditRecordsActorFromContext(t *testing.T) {
 	if err := svc.Denied(ctx, "t-act", "u-actor", "infrastructure.write", "infrastructure", "missing permission"); err != nil {
 		t.Fatal(err)
 	}
-	e2 := db.Audit[1]
+	e2 := repo.entries[1]
 	if e2.OK {
 		t.Fatal("denied entry must be OK=false")
 	}

@@ -15,8 +15,6 @@ import {
   Terminal,
   Workflow,
 } from '@/components/icons';
-import { triggerPipeline } from '@/services/api/deployment';
-
 interface Cmd {
   id: string;
   label: string;
@@ -44,13 +42,10 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       { id: 'settings', label: '设置', group: '导航', icon: <SettingsIcon size={18} />, run: () => navigate('/settings') },
       {
         id: 'act-trigger',
-        label: '触发部署：api-gateway',
+        label: '触发部署（前往流水线页）',
         group: '操作',
         icon: <Rocket size={18} />,
-        run: async () => {
-          await triggerPipeline('pl-api');
-          message.success('已触发 api-gateway 流水线');
-        },
+        run: () => navigate('/delivery/pipelines'),
       },
       {
         id: 'act-logs',

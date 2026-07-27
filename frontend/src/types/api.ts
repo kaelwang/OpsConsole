@@ -1,6 +1,5 @@
 /* ==========================================================================
-   由 openapi.yaml 生成的 TS 类型契约（前后端唯一依据 spec-as-contract）
-   字段命名与后端 JSON 保持一致（camelCase）。
+   与后端 Go model 对齐的 TS 类型契约（字段命名与后端 JSON 一致）。
    ========================================================================== */
 
 /** 统一响应体外壳：{ code, data, message } */
@@ -34,6 +33,7 @@ export interface LoginRequest {
 }
 export interface TokenResponse {
   accessToken: string;
+  refreshToken?: string;
   expiresIn: number;
   tenantId: string;
   role: RoleName;
@@ -45,18 +45,20 @@ export type AlertStatus = 'firing' | 'resolved';
 
 export interface AlertRule {
   id: string;
+  tenantId: string;
+  name: string;
   expr: string;
-  for: string;
+  forSeconds: number;
   severity: AlertSeverity;
-  channelIds: string[];
-  createdBy: string;
+  channelIds?: string[];
+  createdBy?: string;
   createdAt: string;
 }
 export interface AlertRuleCreateRequest {
+  name: string;
   expr: string;
-  for?: string;
   severity: AlertSeverity;
-  channelIds?: string[];
+  forSeconds?: number;
 }
 
 export interface AlertEvent {
@@ -74,12 +76,12 @@ export interface NotificationChannel {
   id: string;
   tenantId: string;
   type: ChannelType;
-  config: Record<string, unknown>;
+  target: string;
   createdAt: string;
 }
 export interface NotificationChannelCreateRequest {
   type: ChannelType;
-  config: Record<string, unknown>;
+  target: string;
 }
 
 /* ---------------- 日志 ---------------- */
@@ -89,20 +91,18 @@ export interface LogEntry {
   level: LogLevel;
   service: string;
   message: string;
-  pod?: string;
 }
 
 /* ---------------- 部署 / CI-CD ---------------- */
 export type PipelineStatus = 'success' | 'failed' | 'running' | 'pending';
 export interface Pipeline {
-  id: string;
+  id: number;
   name: string;
+  ref: string;
   status: PipelineStatus;
-  lastRunAt: string;
-  branch?: string;
-  version?: string;
-  env?: string;
-  durationSec?: number;
+  web_url: string;
+  created_at?: string;
+  updated_at?: string;
 }
 export type DeploymentStatus =
   | 'pending'
@@ -112,30 +112,21 @@ export type DeploymentStatus =
   | 'rolled_back';
 export interface Deployment {
   id: string;
-  pipelineId: string;
-  version: string;
-  status: DeploymentStatus;
-  createdBy: string;
-  createdAt: string;
-}
-export interface RollbackRequest {
-  targetVersion?: string;
-}
-
-/** 流水线执行的步骤节点（前端聚合用于时间线） */
-export interface PipelineStage {
+  tenantId: string;
+  projectId: string;
   name: string;
-  status: PipelineStatus;
-  durationSec: number;
-  startedAt: string;
+  ref: string;
+  status: DeploymentStatus;
+  createdAt: string;
 }
 
 /* ---------------- 主机与 K8s ---------------- */
 export interface Cluster {
   id: string;
+  tenantId: string;
   name: string;
+  provider: string;
   kubeconfigRef: string;
-  saName: string;
   createdAt: string;
   /** 前端聚合：节点数 */
   nodeCount?: number;
@@ -144,28 +135,29 @@ export interface Cluster {
 }
 export interface ClusterCreateRequest {
   name: string;
-  kubeconfigRef: string;
-  saName: string;
+  provider?: string;
+  kubeconfig?: string;
 }
 export interface Pod {
   name: string;
   namespace: string;
   status: string;
   node: string;
-  restarts: number;
   age: string;
+  restarts?: number;
   cpu?: number;
   memory?: number;
 }
 export type HostStatus = 'online' | 'offline' | 'unknown';
 export interface Host {
   id: string;
+  tenantId: string;
+  clusterId: string;
+  name: string;
   ip: string;
   os: string;
   status: HostStatus;
   createdAt: string;
-  cpu?: number;
-  memory?: number;
 }
 
 /* ---------------- 审计 ---------------- */
@@ -173,17 +165,12 @@ export type AuditResult = 'success' | 'failure' | 'warning';
 export interface AuditLog {
   id: string;
   tenantId: string;
-  actorId: string;
-  actorName: string;
-  impersonatedAs?: string;
+  userId: string;
   action: string;
-  object: string;
-  result: AuditResult;
+  resource: string;
+  detail: string;
+  ok: boolean;
   createdAt: string;
-  ip?: string;
-  userAgent?: string;
-  before?: string;
-  after?: string;
 }
 
 /* ---------------- RBAC ---------------- */
@@ -193,17 +180,18 @@ export interface RolePermission {
   permissions: string[];
 }
 export interface MemberAssignment {
+  tenantId?: string;
   userId: string;
-  displayName: string;
-  email: string;
   role: RoleName;
-  team: string;
+  displayName?: string;
+  email?: string;
 }
 
 /* ---------------- 指标查询 ---------------- */
 export interface MetricSeries {
   metric: Record<string, string>;
   values: Array<[number, string]>;
+  value?: [number, string];
 }
 export interface QueryResult {
   status: 'success' | 'error';

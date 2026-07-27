@@ -14,80 +14,86 @@ const (
 )
 
 type User struct {
-	ID           string
-	Email        string
-	PasswordHash string
-	DisplayName  string
-	CreatedAt    time.Time
+	ID           string    `json:"id"`
+	Email        string    `json:"email"`
+	PasswordHash string    `json:"-"`
+	DisplayName  string    `json:"displayName"`
+	CreatedAt    time.Time `json:"createdAt"`
 }
 
 type Membership struct {
-	TenantID string
-	UserID   string
-	Role     Role
+	TenantID    string `json:"tenantId"`
+	UserID      string `json:"userId"`
+	Role        Role   `json:"role"`
+	DisplayName string `json:"displayName,omitempty"`
+	Email       string `json:"email,omitempty"`
 }
 
 type Tenant struct {
-	ID   string
-	Name string
-	Plan string
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Plan string `json:"plan"`
 }
 
 type Cluster struct {
-	ID         string
-	TenantID   string
-	Name       string
-	Provider   string
-	Kubeconfig string
-	CreatedAt  time.Time
+	ID         string    `json:"id"`
+	TenantID   string    `json:"tenantId"`
+	Name       string    `json:"name"`
+	Provider   string    `json:"provider"`
+	Kubeconfig string    `json:"kubeconfigRef"`
+	CreatedAt  time.Time `json:"createdAt"`
 }
 
 type Host struct {
-	ID        string
-	TenantID  string
-	ClusterID string
-	Name      string
-	IP        string
-	Status    string
+	ID        string    `json:"id"`
+	TenantID  string    `json:"tenantId"`
+	ClusterID string    `json:"clusterId"`
+	Name      string    `json:"name"`
+	IP        string    `json:"ip"`
+	OS        string    `json:"os"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 type AlertRule struct {
-	ID         string
-	TenantID   string
-	Name       string
-	Expr       string
-	ForSeconds int
-	Severity   string
-	CreatedAt  time.Time
+	ID         string    `json:"id"`
+	TenantID   string    `json:"tenantId"`
+	Name       string    `json:"name"`
+	Expr       string    `json:"expr"`
+	ForSeconds int       `json:"forSeconds"`
+	Severity   string    `json:"severity"`
+	ChannelIDs []string  `json:"channelIds"`
+	CreatedBy  string    `json:"createdBy"`
+	CreatedAt  time.Time `json:"createdAt"`
 }
 
 type NotificationChannel struct {
-	ID        string
-	TenantID  string
-	Type      string
-	Target    string
-	CreatedAt time.Time
+	ID        string    `json:"id"`
+	TenantID  string    `json:"tenantId"`
+	Type      string    `json:"type"`
+	Target    string    `json:"target"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 type Deployment struct {
-	ID        string
-	TenantID  string
-	ProjectID string
-	Name      string
-	Ref       string
-	Status    string
-	CreatedAt time.Time
+	ID        string    `json:"id"`
+	TenantID  string    `json:"tenantId"`
+	ProjectID string    `json:"projectId"`
+	Name      string    `json:"name"`
+	Ref       string    `json:"ref"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 type AuditLog struct {
-	ID        string
-	TenantID  string
-	UserID    string
-	Action    string
-	Resource  string
-	Detail    string
-	OK        bool
-	CreatedAt time.Time
+	ID        string    `json:"id"`
+	TenantID  string    `json:"tenantId"`
+	UserID    string    `json:"userId"`
+	Action    string    `json:"action"`
+	Resource  string    `json:"resource"`
+	Detail    string    `json:"detail"`
+	OK        bool      `json:"ok"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 type LoginRequest struct {
@@ -96,9 +102,11 @@ type LoginRequest struct {
 }
 
 type TokenResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-	ExpiresIn    int    `json:"expires_in"`
+	AccessToken  string `json:"accessToken"`
+	RefreshToken string `json:"refreshToken"`
+	ExpiresIn    int    `json:"expiresIn"`
+	TenantID     string `json:"tenantId"`
+	Role         string `json:"role"`
 }
 
 type Pod struct {
@@ -125,9 +133,11 @@ type LogEntry struct {
 }
 
 type AlertEvent struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Severity  string `json:"severity"`
-	Status    string `json:"status"`
-	StartedAt string `json:"started_at"`
+	ID       string            `json:"id"`
+	RuleID   string            `json:"ruleId"`
+	Severity string            `json:"severity"`
+	Status   string            `json:"status"`
+	FiredAt  string            `json:"firedAt"`
+	Summary  string            `json:"summary"`
+	Labels   map[string]string `json:"labels"`
 }

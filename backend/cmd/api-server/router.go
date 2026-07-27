@@ -48,6 +48,7 @@ func buildRouter(
 	g := secured.Group("/rbac")
 	g.GET("/memberships", rbac.RequirePermission("rbac", "read", auditSvc), rbac.ListMembershipsHandler(assignRepo))
 	g.POST("/memberships", rbac.RequirePermission("rbac", "write", auditSvc), rbac.AssignHandler(assignRepo))
+	g.GET("/roles", rbac.RequirePermission("rbac", "read", auditSvc), rbac.ListRolesHandler())
 
 	// Audit logs.
 	secured.GET("/audit/logs", rbac.RequirePermission("audit", "read", auditSvc), auditSvc.ListHandler)
@@ -59,6 +60,7 @@ func buildRouter(
 	m.POST("/alert-rules", rbac.RequirePermission("monitoring", "write", auditSvc), monSvc.CreateRuleHandler)
 	m.GET("/notifications", rbac.RequirePermission("monitoring", "read", auditSvc), monSvc.ListNotifsHandler)
 	m.POST("/notifications", rbac.RequirePermission("monitoring", "write", auditSvc), monSvc.CreateNotifHandler)
+	m.DELETE("/notifications/:id", rbac.RequirePermission("monitoring", "write", auditSvc), monSvc.DeleteNotifHandler)
 	m.GET("/alerts", rbac.RequirePermission("monitoring", "read", auditSvc), monSvc.ListAlertsHandler)
 
 	// Logging.
@@ -69,6 +71,7 @@ func buildRouter(
 	// Deployment.
 	d := secured.Group("/deployment")
 	d.GET("/pipelines", rbac.RequirePermission("deployment", "read", auditSvc), depSvc.ListHandler)
+	d.GET("/deployments", rbac.RequirePermission("deployment", "read", auditSvc), depSvc.ListDeploymentsHandler)
 	d.POST("/trigger", rbac.RequirePermission("deployment", "write", auditSvc), depSvc.TriggerHandler)
 	d.POST("/rollback", rbac.RequirePermission("deployment", "write", auditSvc), depSvc.RollbackHandler)
 

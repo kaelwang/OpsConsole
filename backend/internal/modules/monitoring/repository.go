@@ -8,7 +8,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/opsconsole/backend/internal/model"
 	"github.com/opsconsole/backend/internal/platform/pg"
-	"github.com/opsconsole/backend/internal/platform/store"
 )
 
 // ErrNotFound is returned when a monitoring entity is missing.
@@ -24,58 +23,7 @@ type AlertRuleRepository interface {
 type NotificationRepository interface {
 	List(ctx context.Context, tenantID string) ([]model.NotificationChannel, error)
 	Create(ctx context.Context, n model.NotificationChannel) error
-}
-
-// ---- in-memory ----
-
-type memAlertRepo struct{ db *store.MemDB }
-
-// NewMemAlertRepository builds the in-memory alert rule repository.
-func NewMemAlertRepository(db *store.MemDB) AlertRuleRepository { return &memAlertRepo{db: db} }
-
-func (r *memAlertRepo) List(ctx context.Context, tenantID string) ([]model.AlertRule, error) {
-	r.db.Mu.RLock()
-	defer r.db.Mu.RUnlock()
-	out := make([]model.AlertRule, 0)
-	for _, a := range r.db.AlertRules {
-		if a.TenantID == tenantID {
-			out = append(out, a)
-		}
-	}
-	return out, nil
-}
-
-func (r *memAlertRepo) Create(ctx context.Context, a model.AlertRule) error {
-	r.db.Mu.Lock()
-	defer r.db.Mu.Unlock()
-	r.db.AlertRules[a.ID] = a
-	return nil
-}
-
-type memNotifRepo struct{ db *store.MemDB }
-
-// NewMemNotificationRepository builds the in-memory notification repository.
-func NewMemNotificationRepository(db *store.MemDB) NotificationRepository {
-	return &memNotifRepo{db: db}
-}
-
-func (r *memNotifRepo) List(ctx context.Context, tenantID string) ([]model.NotificationChannel, error) {
-	r.db.Mu.RLock()
-	defer r.db.Mu.RUnlock()
-	out := make([]model.NotificationChannel, 0)
-	for _, n := range r.db.Notifs {
-		if n.TenantID == tenantID {
-			out = append(out, n)
-		}
-	}
-	return out, nil
-}
-
-func (r *memNotifRepo) Create(ctx context.Context, n model.NotificationChannel) error {
-	r.db.Mu.Lock()
-	defer r.db.Mu.Unlock()
-	r.db.Notifs[n.ID] = n
-	return nil
+	Delete(ctx context.Context, tenantID, id string) error
 }
 
 // ---- postgres ----
@@ -89,14 +37,18 @@ func (r *pgAlertRepo) List(ctx context.Context, tenantID string) ([]model.AlertR
 	out := make([]model.AlertRule, 0)
 	err := pg.WithTenant(ctx, r.pool, tenantID, "member", func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx,
-			`SELECT id, tenant_id, name, expr, for_seconds, severity, created_at FROM alert_rules WHERE tenant_id=$1`, tenantID)
+			`SELECT id, tenant_id, name, expr, for_seconds, severity,
+			        (SELECT COALESCE(array_agg(x), ARRAY[]::text[])
+			           FROM jsonb_array_elements_text(channel_ids) x) AS channel_ids,
+			        created_by, created_at
+			 FROM alert_rules WHERE tenant_id=$1`, tenantID)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
 			var a model.AlertRule
-			if err := rows.Scan(&a.ID, &a.TenantID, &a.Name, &a.Expr, &a.ForSeconds, &a.Severity, &a.CreatedAt); err != nil {
+			if err := rows.Scan(&a.ID, &a.TenantID, &a.Name, &a.Expr, &a.ForSeconds, &a.Severity, &a.ChannelIDs, &a.CreatedBy, &a.CreatedAt); err != nil {
 				return err
 			}
 			out = append(out, a)
@@ -149,6 +101,14 @@ func (r *pgNotifRepo) Create(ctx context.Context, n model.NotificationChannel) e
 		_, err := tx.Exec(ctx,
 			`INSERT INTO notification_channels (id, tenant_id, type, target, created_at) VALUES ($1,$2,$3,$4,$5)`,
 			n.ID, n.TenantID, n.Type, n.Target, n.CreatedAt)
+		return err
+	})
+}
+
+func (r *pgNotifRepo) Delete(ctx context.Context, tenantID, id string) error {
+	return pg.WithTenant(ctx, r.pool, tenantID, "member", func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx,
+			`DELETE FROM notification_channels WHERE tenant_id=$1 AND id=$2`, tenantID, id)
 		return err
 	})
 }

@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 15s
+  external_labels:
+    cluster: opsconsole-dev
+
+scrape_configs:
+  # 主机指标（CPU / 内存 / 磁盘 / 网络），由 node_exporter 暴露
+  - job_name: node
+    static_configs:
+      - targets: ['opsconsole-nodeexporter:9100']
+
+  # VictoriaMetrics 自监控
+  - job_name: victoriametrics
+    static_configs:
+      - targets: ['opsconsole-vm:8428']

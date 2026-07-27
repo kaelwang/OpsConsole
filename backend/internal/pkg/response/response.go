@@ -35,6 +35,11 @@ func Created(c *gin.Context, data interface{}) {
 	c.JSON(http.StatusCreated, Envelope{Code: CodeOK, Data: data})
 }
 
+// NoContent writes a 204 response.
+func NoContent(c *gin.Context) {
+	c.Status(http.StatusNoContent)
+}
+
 // Accepted writes a 202 response.
 func Accepted(c *gin.Context, data interface{}) {
 	c.JSON(http.StatusAccepted, Envelope{Code: CodeOK, Data: data})

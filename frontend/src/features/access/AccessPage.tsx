@@ -100,17 +100,16 @@ export function AccessPage() {
     {
       title: '成员',
       dataIndex: 'displayName',
-      render: (v: string, r: { email: string }) => (
+      render: (v: string | undefined, r: { userId: string; email?: string }) => (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           <UserIcon size={16} style={{ color: 'var(--muted)' }} />
           <span>
-            <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--fg)' }}>{v}</div>
-            <div className="mono" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--meta)' }}>{r.email}</div>
+            <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--fg)' }}>{v || r.userId}</div>
+            <div className="mono" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--meta)' }}>{r.email || '—'}</div>
           </span>
         </span>
       ),
     },
-    { title: '团队', dataIndex: 'team', width: 120, render: (v: string) => <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--fg-2)' }}>{v}</span> },
     {
       title: '角色',
       dataIndex: 'role',

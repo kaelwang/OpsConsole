@@ -11,34 +11,19 @@ import (
 
 // Pipeline is a CI/CD pipeline summary.
 type Pipeline struct {
-	ID     int    `json:"id"`
-	Name   string `json:"name"`
-	Ref    string `json:"ref"`
-	Status string `json:"status"`
-	WebURL string `json:"web_url"`
+	ID        int    `json:"id"`
+	Name      string `json:"name"`
+	Ref       string `json:"ref"`
+	Status    string `json:"status"`
+	WebURL    string `json:"web_url"`
+	CreatedAt string `json:"created_at,omitempty"`
+	UpdatedAt string `json:"updated_at,omitempty"`
 }
 
 // CICDProvider abstracts a CI/CD backend.
 type CICDProvider interface {
 	ListPipelines(ctx context.Context, projectID string) ([]Pipeline, error)
 	Trigger(ctx context.Context, projectID, ref string) (*Pipeline, error)
-}
-
-// DevAdapter returns seeded mock pipelines for memory mode.
-type DevAdapter struct{}
-
-// NewDevAdapter builds the development CI/CD adapter.
-func NewDevAdapter() *DevAdapter { return &DevAdapter{} }
-
-func (d *DevAdapter) ListPipelines(ctx context.Context, projectID string) ([]Pipeline, error) {
-	return []Pipeline{
-		{ID: 123, Name: "build", Ref: "main", Status: "success", WebURL: "https://gitlab.example.com/p/123"},
-		{ID: 124, Name: "deploy", Ref: "main", Status: "running", WebURL: "https://gitlab.example.com/p/124"},
-	}, nil
-}
-
-func (d *DevAdapter) Trigger(ctx context.Context, projectID, ref string) (*Pipeline, error) {
-	return &Pipeline{ID: 125, Name: "manual", Ref: ref, Status: "pending", WebURL: "https://gitlab.example.com/p/125"}, nil
 }
 
 // GitLabAdapter talks to the GitLab REST v4 API.

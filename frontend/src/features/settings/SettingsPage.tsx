@@ -17,7 +17,7 @@ import {
 import { PageHeader } from '@/components/PageHeader';
 import { useThemeStore, type ThemeMode } from '@/stores/theme';
 import { useAuthStore } from '@/stores/auth';
-import { listChannels, createChannel } from '@/services/api/monitoring';
+import { listChannels, createChannel, deleteChannel } from '@/services/api/monitoring';
 import { listClusters, registerCluster } from '@/services/api/infrastructure';
 import type { ChannelType } from '@/types/api';
 
@@ -43,16 +43,17 @@ export function SettingsPage() {
   const clustersQ = useQuery({ queryKey: ['clusters'], queryFn: listClusters });
 
   const createChan = useMutation({
-    mutationFn: (v: { type: ChannelType; value: string }) => {
-      const config: Record<string, string> =
-        v.type === 'email' ? { to: v.value } : v.type === 'webhook' ? { url: v.value } : { token: v.value };
-      return createChannel({ type: v.type, config });
-    },
+    mutationFn: (v: { type: ChannelType; value: string }) => createChannel({ type: v.type, target: v.value }),
     onSuccess: () => { message.success('通知渠道已创建'); setChanOpen(false); qc.invalidateQueries({ queryKey: ['channels'] }); },
     onError: (e: Error) => message.error(e.message),
   });
+  const delChan = useMutation({
+    mutationFn: (id: string) => deleteChannel(id),
+    onSuccess: () => { message.success('通知渠道已删除'); qc.invalidateQueries({ queryKey: ['channels'] }); },
+    onError: (e: Error) => message.error(e.message),
+  });
   const regCluster = useMutation({
-    mutationFn: (v: { name: string; kubeconfigRef: string; saName: string }) => registerCluster(v),
+    mutationFn: (v: { name: string; provider?: string; kubeconfig?: string }) => registerCluster(v),
     onSuccess: () => { message.success('集群已注册'); setClusterOpen(false); qc.invalidateQueries({ queryKey: ['clusters'] }); },
     onError: (e: Error) => message.error(e.message),
   });
@@ -116,8 +117,8 @@ export function SettingsPage() {
                 dataSource={channelsQ.data ?? []}
                 columns={[
                   { title: '类型', dataIndex: 'type', width: 120, render: (v: ChannelType) => <Tag style={{ fontSize: 11 }}>{CHANNEL_LABEL[v]}</Tag> },
-                  { title: '配置', dataIndex: 'config', render: (c: Record<string, unknown>) => <span className="mono" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--fg-2)' }}>{String(Object.values(c)[0] ?? '')}</span> },
-                  { title: '', width: 60, render: () => <Button type="text" size="small" danger icon={<Trash2 size={16} />} onClick={() => message.success('已删除渠道（演示）')} /> },
+                  { title: '目标', dataIndex: 'target', render: (v: string) => <span className="mono" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--fg-2)' }}>{v}</span> },
+                  { title: '', width: 60, render: (_: unknown, r: { id: string }) => <Button type="text" size="small" danger icon={<Trash2 size={16} />} onClick={() => delChan.mutate(r.id)} /> },
                 ]}
               />
             </div>
@@ -136,9 +137,8 @@ export function SettingsPage() {
                 dataSource={clustersQ.data ?? []}
                 columns={[
                   { title: '名称', dataIndex: 'name', render: (v: string) => <span style={{ color: 'var(--fg)' }}>{v}</span> },
+                  { title: '提供商', dataIndex: 'provider', width: 120, render: (v: string) => <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--fg-2)' }}>{v || '—'}</span> },
                   { title: 'kubeconfig', dataIndex: 'kubeconfigRef', render: (v: string) => <span className="mono" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--muted)' }}>{v}</span> },
-                  { title: '服务账号', dataIndex: 'saName', render: (v: string) => <span className="mono" style={{ fontSize: 'var(--font-size-xs)' }}>{v}</span> },
-                  { title: '健康', dataIndex: 'health', width: 80, render: (v: number) => <span style={{ color: v >= 90 ? 'var(--success)' : v >= 75 ? 'var(--warn)' : 'var(--danger)' }}>{v}%</span> },
                 ]}
               />
             </div>
@@ -171,11 +171,11 @@ export function SettingsPage() {
       </Modal>
 
       <Modal title="注册集群" open={clusterOpen} onCancel={() => setClusterOpen(false)} onOk={() => document.getElementById('set-cluster-submit')?.click()} okText="注册">
-        <Form id="set-cluster-form" layout="vertical" onFinish={(v) => regCluster.mutate({ name: v.name, kubeconfigRef: v.kubeconfigRef, saName: v.saName })}>
+        <Form id="set-cluster-form" layout="vertical" onFinish={(v) => regCluster.mutate({ name: v.name, provider: v.provider, kubeconfig: v.kubeconfig })}>
           <button id="set-cluster-submit" type="submit" form="set-cluster-form" style={{ display: 'none' }} />
           <Form.Item name="name" label="集群名称" rules={[{ required: true }]}><Input placeholder="prod-shanghai" /></Form.Item>
-          <Form.Item name="kubeconfigRef" label="kubeconfig 引用" rules={[{ required: true }]}><Input className="mono" placeholder="secret://vault/k8s/prod-sh" /></Form.Item>
-          <Form.Item name="saName" label="服务账号（impersonation）" rules={[{ required: true }]}><Input className="mono" placeholder="ops-impersonator" /></Form.Item>
+          <Form.Item name="provider" label="提供商"><Input placeholder="self-hosted / tke / eks" /></Form.Item>
+          <Form.Item name="kubeconfig" label="kubeconfig 引用"><Input className="mono" placeholder="secret://vault/k8s/prod-sh" /></Form.Item>
         </Form>
       </Modal>
     </div>

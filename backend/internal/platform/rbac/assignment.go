@@ -10,7 +10,6 @@ import (
 	"github.com/opsconsole/backend/internal/model"
 	"github.com/opsconsole/backend/internal/pkg/response"
 	"github.com/opsconsole/backend/internal/platform/pg"
-	"github.com/opsconsole/backend/internal/platform/store"
 	"github.com/opsconsole/backend/internal/platform/tenant"
 )
 
@@ -21,34 +20,6 @@ var ErrAssignmentNotFound = errors.New("assignment not found")
 type AssignRepository interface {
 	Assign(ctx context.Context, tenantID, userID string, role model.Role) error
 	List(ctx context.Context, tenantID string) ([]model.Membership, error)
-}
-
-type memAssignRepo struct {
-	db *store.MemDB
-}
-
-// NewMemAssignRepository builds the in-memory assignment repository.
-func NewMemAssignRepository(db *store.MemDB) AssignRepository {
-	return &memAssignRepo{db: db}
-}
-
-func (r *memAssignRepo) Assign(ctx context.Context, tenantID, userID string, role model.Role) error {
-	r.db.Mu.Lock()
-	defer r.db.Mu.Unlock()
-	r.db.Members[tenantID+"|"+userID] = model.Membership{TenantID: tenantID, UserID: userID, Role: role}
-	return nil
-}
-
-func (r *memAssignRepo) List(ctx context.Context, tenantID string) ([]model.Membership, error) {
-	r.db.Mu.RLock()
-	defer r.db.Mu.RUnlock()
-	out := make([]model.Membership, 0)
-	for _, m := range r.db.Members {
-		if m.TenantID == tenantID {
-			out = append(out, m)
-		}
-	}
-	return out, nil
 }
 
 type pgAssignRepo struct {
@@ -73,14 +44,19 @@ func (r *pgAssignRepo) Assign(ctx context.Context, tenantID, userID string, role
 func (r *pgAssignRepo) List(ctx context.Context, tenantID string) ([]model.Membership, error) {
 	out := make([]model.Membership, 0)
 	err := pg.WithTenant(ctx, r.pool, tenantID, string(tenant.Role(ctx)), func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT tenant_id, user_id, role FROM tenant_memberships WHERE tenant_id=$1`, tenantID)
+		rows, err := tx.Query(ctx,
+			`SELECT m.tenant_id, m.user_id, m.role, u.display_name, u.email
+			 FROM tenant_memberships m
+			 JOIN users u ON u.id = m.user_id
+			 WHERE m.tenant_id=$1
+			 ORDER BY u.display_name`, tenantID)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
 			var m model.Membership
-			if err := rows.Scan(&m.TenantID, &m.UserID, &m.Role); err != nil {
+			if err := rows.Scan(&m.TenantID, &m.UserID, &m.Role, &m.DisplayName, &m.Email); err != nil {
 				return err
 			}
 			out = append(out, m)

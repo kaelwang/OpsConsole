@@ -93,6 +93,7 @@ CREATE TABLE clusters (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id     uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   name          text NOT NULL,
+  provider      text NOT NULL DEFAULT '',
   kubeconfig_ref text NOT NULL,
   sa_name       text NOT NULL,
   created_at    timestamptz NOT NULL DEFAULT now(),
@@ -104,11 +105,12 @@ CREATE INDEX idx_clusters_tenant ON clusters(tenant_id);
 CREATE TABLE alert_rules (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id  uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  name       text NOT NULL DEFAULT '',
   expr       text NOT NULL,
-  "for"      text NOT NULL DEFAULT '5m',                 -- SQL 保留字，使用引号标识符
+  for_seconds integer NOT NULL DEFAULT 300,             -- 触发持续的秒数
   severity   alert_severity NOT NULL DEFAULT 'warning',
   channel_ids jsonb NOT NULL DEFAULT '[]'::jsonb,        -- 关联 notification_channels.id 数组
-  created_by uuid NOT NULL REFERENCES users(id),
+  created_by uuid REFERENCES users(id),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -119,7 +121,7 @@ CREATE TABLE notification_channels (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id  uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   type       channel_type NOT NULL,
-  config     jsonb NOT NULL DEFAULT '{}'::jsonb,
+  target     text NOT NULL DEFAULT '',                  -- 渠道目标（邮箱/URL/机器人地址等）
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -129,7 +131,9 @@ CREATE INDEX idx_notification_channels_tenant ON notification_channels(tenant_id
 CREATE TABLE hosts (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id  uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  ip         inet NOT NULL,
+  cluster_id text NOT NULL DEFAULT '',
+  name       text NOT NULL DEFAULT '',
+  ip         text NOT NULL,
   ssh_ref    text NOT NULL,
   os         text,
   status     host_status NOT NULL DEFAULT 'unknown',
@@ -142,26 +146,29 @@ CREATE INDEX idx_hosts_tenant ON hosts(tenant_id);
 CREATE TABLE deployments (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id   uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  pipeline_id text NOT NULL,
-  version     text NOT NULL,
+  project_id  text NOT NULL DEFAULT '',
+  name        text NOT NULL DEFAULT '',
+  ref         text NOT NULL DEFAULT '',
   status      deployment_status NOT NULL DEFAULT 'pending',
-  created_by  uuid NOT NULL REFERENCES users(id),
+  created_by  uuid REFERENCES users(id),
   created_at  timestamptz NOT NULL DEFAULT now(),
   updated_at  timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_deployments_tenant ON deployments(tenant_id);
 -- 回滚查询：按租户 + 流水线 + 时间倒序取历史版本
-CREATE INDEX idx_deployments_tenant_pipeline ON deployments(tenant_id, pipeline_id, created_at DESC);
+CREATE INDEX idx_deployments_tenant_pipeline ON deployments(tenant_id, project_id, created_at DESC);
 
 -- 审计日志（普通用户无 DELETE 权限，见 GRANT 段）
 CREATE TABLE audit_logs (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id       uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  actor_id        uuid NOT NULL REFERENCES users(id),
+  user_id         uuid NOT NULL REFERENCES users(id),
   impersonated_as text,                                   -- K8s impersonation 身份（可空）
   action          text NOT NULL,                          -- 如 'deployment:trigger'
-  object          text NOT NULL,                          -- 目标对象标识
-  result          text NOT NULL DEFAULT 'success',        -- success / failure
+  resource        text NOT NULL,                          -- 目标对象标识
+  detail          text NOT NULL DEFAULT '',               -- 详情
+  ok              boolean NOT NULL DEFAULT true,          -- success / failure
+  result          text NOT NULL DEFAULT 'success',        -- 兼容历史字段
   created_at      timestamptz NOT NULL DEFAULT now()
 );
 -- SPEC §6 索引：IDX(tenant_id, actor_id, created_at)；复合索引前缀已覆盖 tenant_id 单列查询

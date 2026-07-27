@@ -1,0 +1,35 @@
+groups:
+  - name: opsconsole-node
+    rules:
+      - alert: HighCPULoad
+        expr: 100 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100 > 80
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "节点 CPU 负载过高 (>80%)"
+          description: "实例 {{ $labels.instance }} 的 CPU 使用率持续 5 分钟高于 80%"
+      - alert: HighMemoryUsage
+        expr: (1 - sum(node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "节点内存使用率过高 (>85%)"
+          description: "实例 {{ $labels.instance }} 的内存使用率持续 5 分钟高于 85%"
+      - alert: HighDiskUsage
+        expr: max((1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"}) * 100) > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "节点磁盘使用率过高 (>90%)"
+          description: "实例 {{ $labels.instance }} 的磁盘使用率持续 5 分钟高于 90%"
+      - alert: NodeDown
+        expr: up{job="node"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "节点离线"
+          description: "实例 {{ $labels.instance }} 已超过 2 分钟无法抓取"

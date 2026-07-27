@@ -22,6 +22,16 @@ func (s *Service) ListHandler(c *gin.Context) {
 	response.OK(c, list)
 }
 
+// ListDeploymentsHandler returns the tenant's deployment history from the database.
+func (s *Service) ListDeploymentsHandler(c *gin.Context) {
+	list, err := s.ListDeployments(c.Request.Context(), tenant.TenantID(c.Request.Context()))
+	if err != nil {
+		response.Internal(c, "failed to list deployments")
+		return
+	}
+	response.OK(c, list)
+}
+
 // TriggerHandler triggers a deployment.
 func (s *Service) TriggerHandler(c *gin.Context) {
 	var body struct {

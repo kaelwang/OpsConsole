@@ -32,11 +32,18 @@ func (c *Client) Query(ctx context.Context, expr string) (json.RawMessage, error
 	return c.get(ctx, "/api/v1/query", url.Values{"query": {expr}})
 }
 
-// QueryRange runs a range PromQL query with the given step.
-func (c *Client) QueryRange(ctx context.Context, expr, step string) (json.RawMessage, error) {
+// QueryRange runs a range PromQL query over [start, end] with the given step.
+// start/end are forwarded as-is (unix seconds or RFC3339) to VictoriaMetrics.
+func (c *Client) QueryRange(ctx context.Context, expr, step, start, end string) (json.RawMessage, error) {
 	v := url.Values{"query": {expr}}
 	if step != "" {
 		v.Set("step", step)
+	}
+	if start != "" {
+		v.Set("start", start)
+	}
+	if end != "" {
+		v.Set("end", end)
 	}
 	return c.get(ctx, "/api/v1/query_range", v)
 }

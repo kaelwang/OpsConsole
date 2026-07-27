@@ -8,7 +8,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/opsconsole/backend/internal/model"
 	"github.com/opsconsole/backend/internal/platform/pg"
-	"github.com/opsconsole/backend/internal/platform/store"
 	"github.com/opsconsole/backend/internal/platform/tenant"
 )
 
@@ -19,40 +18,6 @@ var ErrNotFound = errors.New("not found")
 type Repository interface {
 	Write(ctx context.Context, entry model.AuditLog) error
 	List(ctx context.Context, page, limit int) ([]model.AuditLog, int, error)
-}
-
-type memRepo struct {
-	db *store.MemDB
-}
-
-// NewMemRepository builds the in-memory audit repository.
-func NewMemRepository(db *store.MemDB) Repository { return &memRepo{db: db} }
-
-func (r *memRepo) Write(ctx context.Context, entry model.AuditLog) error {
-	r.db.Mu.Lock()
-	defer r.db.Mu.Unlock()
-	r.db.Audit = append(r.db.Audit, entry)
-	return nil
-}
-
-func (r *memRepo) List(ctx context.Context, page, limit int) ([]model.AuditLog, int, error) {
-	r.db.Mu.RLock()
-	defer r.db.Mu.RUnlock()
-	total := len(r.db.Audit)
-	start := (page - 1) * limit
-	if start >= total {
-		return []model.AuditLog{}, total, nil
-	}
-	end := start + limit
-	if end > total {
-		end = total
-	}
-	out := make([]model.AuditLog, 0, end-start)
-	// newest first
-	for i := start; i < end; i++ {
-		out = append(out, r.db.Audit[total-1-i])
-	}
-	return out, total, nil
 }
 
 type pgRepo struct {

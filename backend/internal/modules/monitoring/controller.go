@@ -15,13 +15,15 @@ import (
 func (s *Service) QueryHandler(c *gin.Context) {
 	expr := c.Query("expr")
 	step := c.Query("step")
+	start := c.Query("start")
+	end := c.Query("end")
 	if expr == "" {
 		response.BadRequest(c, "expr is required")
 		return
 	}
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 8*time.Second)
 	defer cancel()
-	data, err := s.Query(ctx, expr, step)
+	data, err := s.Query(ctx, expr, step, start, end)
 	if err != nil {
 		if errors.Is(err, ErrUpstreamUnavailable) {
 			response.Upstream(c, "metrics service not configured")
@@ -99,7 +101,47 @@ func (s *Service) CreateNotifHandler(c *gin.Context) {
 	response.Created(c, n)
 }
 
-// ListAlertsHandler returns active alert events. In memory mode this is an empty page.
+// DeleteNotifHandler removes a notification channel.
+func (s *Service) DeleteNotifHandler(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		response.BadRequest(c, "id is required")
+		return
+	}
+	if err := s.DeleteNotification(c.Request.Context(), tenant.TenantID(c.Request.Context()), id); err != nil {
+		response.Internal(c, "failed to delete notification")
+		return
+	}
+	response.NoContent(c)
+}
+
+// ListAlertsHandler returns active alert events evaluated by vmalert.
 func (s *Service) ListAlertsHandler(c *gin.Context) {
-	response.OK(c, gin.H{"items": []interface{}{}, "total": 0})
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 8*time.Second)
+	defer cancel()
+	list, err := s.ListActiveAlerts(ctx)
+	if err != nil {
+		if errors.Is(err, ErrUpstreamUnavailable) {
+			response.Upstream(c, "alerting service not configured")
+			return
+		}
+		response.Timeout(c, "alert query failed")
+		return
+	}
+	if sev := c.Query("severity"); sev != "" {
+		filtered := list[:0]
+		for _, a := range list {
+			if a.Severity == sev {
+				filtered = append(filtered, a)
+			}
+		}
+		list = filtered
+	}
+	response.OK(c, gin.H{
+		"items":   list,
+		"total":   len(list),
+		"page":    1,
+		"limit":   len(list),
+		"hasMore": false,
+	})
 }

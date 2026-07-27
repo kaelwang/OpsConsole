@@ -1,31 +1,27 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   App,
   Button,
   Card,
   Col,
-  Dropdown,
   Empty,
   Form,
   Input,
+  InputNumber,
   List,
   Modal,
   Row,
   Segmented,
   Select,
   Space,
-  Switch,
   Table,
   Tag,
 } from 'antd';
 import {
-  CheckCircle2,
-  MoreHorizontal,
   Plus,
   RefreshCw,
   SlidersHorizontal,
-  VolumeX,
   Webhook,
 } from '@/components/icons';
 import { PageHeader } from '@/components/PageHeader';
@@ -35,21 +31,66 @@ import {
   severityTag,
   severityVar,
 } from '@/components/status';
-import { barOption, gaugeOption, genSeries, lineOption } from './charts';
-import { listAlertRules, createAlertRule, listAlerts, listChannels } from '@/services/api/monitoring';
-import type { AlertRule, AlertSeverity, ChannelType } from '@/types/api';
+import { barOption, gaugeOption, lineOption } from './charts';
+import { formatThroughput } from '@/lib/format';
+import { listAlertRules, createAlertRule, listAlerts, listChannels, queryMetrics } from '@/services/api/monitoring';
+import type { AlertRule, AlertSeverity, ChannelType, QueryResult } from '@/types/api';
 
 const fmt = (iso: string) =>
   new Date(iso).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 
-const PANELS = [
-  { key: 'cpu', title: 'CPU 使用率', unit: '%', colorIdx: 0, thresholds: { warn: 70, danger: 85 }, kind: 'line' },
-  { key: 'mem', title: '内存使用率', unit: '%', colorIdx: 1, thresholds: { warn: 80, danger: 90 }, kind: 'line' },
-  { key: 'net', title: '网络吞吐', unit: '%', colorIdx: 3, thresholds: { warn: 75, danger: 90 }, kind: 'line' },
-  { key: 'disk', title: '磁盘 IO', unit: 'MB/s', colorIdx: 2, kind: 'bar' },
-  { key: 'sat', title: '集群饱和度', unit: '%', kind: 'gauge', value: 72 },
-  { key: 'ok', title: '请求成功率', unit: '%', kind: 'gauge', value: 99 },
-] as const;
+const RANGE_PRESETS: Record<string, { step: number; window: number }> = {
+  '1h': { step: 60, window: 3600 },
+  '6h': { step: 300, window: 21600 },
+  '24h': { step: 900, window: 86400 },
+};
+
+// 各趋势面板对应的 PromQL（数据源：node_exporter，经 vmagent 写入 VictoriaMetrics）
+type Panel = {
+  key: 'cpu' | 'mem' | 'net' | 'disk';
+  title: string;
+  unit: string;
+  colorIdx: number;
+  kind: 'line' | 'bar';
+  expr: string;
+  thresholds?: { warn: number; danger: number };
+  adaptive?: boolean;
+};
+
+const PANELS: Panel[] = [
+  { key: 'cpu', title: 'CPU 使用率', unit: '%', colorIdx: 0, thresholds: { warn: 70, danger: 85 }, kind: 'line',
+    expr: '100 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100' },
+  { key: 'mem', title: '内存使用率', unit: '%', colorIdx: 1, thresholds: { warn: 80, danger: 90 }, kind: 'line',
+    expr: '(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100' },
+  { key: 'net', title: '网络吞吐', unit: 'MB/s', colorIdx: 3, kind: 'line', adaptive: true,
+    expr: '(rate(node_network_receive_bytes_total[5m]) + rate(node_network_transmit_bytes_total[5m])) / 1024 / 1024' },
+  { key: 'disk', title: '磁盘 IO', unit: 'MB/s', colorIdx: 2, kind: 'bar', adaptive: true,
+    expr: '(rate(node_disk_read_bytes_total[5m]) + rate(node_disk_written_bytes_total[5m])) / 1024 / 1024' },
+];
+
+const OK_EXPR = 'avg(up) * 100';
+
+// 将 VM 返回的 matrix 结果按时间戳合并（多序列求和）为 { times, values }
+function toSeries(res: QueryResult): { times: number[]; values: number[] } {
+  const byTs = new Map<number, number>();
+  for (const s of res.data?.result ?? []) {
+    for (const [ts, val] of s.values) {
+      const v = Number(val);
+      if (!Number.isNaN(v)) byTs.set(ts, (byTs.get(ts) ?? 0) + v);
+    }
+  }
+  const times = [...byTs.keys()].sort((a, b) => a - b);
+  // 保留原始精度，交由显示层自适应格式化；否则低吞吐（<0.01 MB/s）会被四舍五入成 0
+  return { times, values: times.map((t) => byTs.get(t) ?? 0) };
+}
+
+// 取即时向量查询的当前值（用于仪表盘）
+function instantValue(res: QueryResult): number {
+  const item = res.data?.result?.[0] as { value?: [number, string] } | undefined;
+  if (item?.value) return Number(item.value[1]) || 0;
+  const last = res.data?.result?.[0]?.values?.slice(-1)[0];
+  return last ? Number(last[1]) || 0 : 0;
+}
 
 const CHANNEL_LABEL: Record<ChannelType, string> = {
   email: '邮件',
@@ -62,26 +103,38 @@ const CHANNEL_LABEL: Record<ChannelType, string> = {
 export function MonitoringPage() {
   const { message } = App.useApp();
   const qc = useQueryClient();
-  const [range, setRange] = useState('6h');
+  const [range, setRange] = useState('1h');
   const [ruleModal, setRuleModal] = useState(false);
-  const [enabled, setEnabled] = useState<Record<string, boolean>>({});
 
   const rulesQ = useQuery({ queryKey: ['alert-rules'], queryFn: listAlertRules });
-  const alertsQ = useQuery({ queryKey: ['alerts', 'monitor'], queryFn: () => listAlerts({ page: 1, limit: 20 }) });
+  const alertsQ = useQuery({ queryKey: ['alerts', 'monitor'], queryFn: () => listAlerts({ page: 1, limit: 20 }), refetchInterval: 60_000 });
   const channelsQ = useQuery({ queryKey: ['channels'], queryFn: listChannels });
 
-  const series = useMemo(
-    () => ({
-      cpu: genSeries(63, 12),
-      mem: genSeries(71, 10),
-      net: genSeries(38, 14),
-      disk: genSeries(44, 20, 16),
-    }),
-    [],
-  );
+  const metricsQ = useQuery({
+    queryKey: ['metrics', range],
+    queryFn: async () => {
+      const { step, window } = RANGE_PRESETS[range];
+      const now = Math.floor(Date.now() / 1000);
+      const [panels, ok] = await Promise.all([
+        Promise.all(
+          PANELS.map(async (p) => ({
+            key: p.key,
+            series: toSeries(await queryMetrics(p.expr, String(step), now - window, now)),
+          })),
+        ),
+        queryMetrics(OK_EXPR),
+      ]);
+      const map: Record<string, { times: number[]; values: number[] }> = {};
+      panels.forEach((p) => {
+        map[p.key] = p.series;
+      });
+      return { map, okVal: instantValue(ok) };
+    },
+    refetchInterval: 60_000,
+  });
 
   const createRule = useMutation({
-    mutationFn: (v: { expr: string; severity: AlertSeverity; for: string }) => createAlertRule(v),
+    mutationFn: (v: { name: string; expr: string; severity: AlertSeverity; forSeconds: number }) => createAlertRule(v),
     onSuccess: () => {
       message.success('告警规则已创建');
       setRuleModal(false);
@@ -95,47 +148,29 @@ export function MonitoringPage() {
   const channels = channelsQ.data ?? [];
 
   const ruleColumns: any[] = [
+    { title: '名称', dataIndex: 'name', width: 160, render: (v: string) => <span style={{ fontWeight: 500, color: 'var(--fg)', fontSize: 'var(--font-size-sm)' }}>{v}</span> },
     { title: '表达式', dataIndex: 'expr', render: (v: string) => <span className="mono" style={{ fontSize: 'var(--font-size-sm)' }}>{v}</span> },
-    { title: '持续', dataIndex: 'for', width: 80, render: (v: string) => <span className="mono" style={{ fontSize: 'var(--font-size-sm)', color: 'var(--muted)' }}>{v}</span> },
+    {
+      title: '持续',
+      dataIndex: 'forSeconds',
+      width: 80,
+      render: (v: number) => (
+        <span className="mono" style={{ fontSize: 'var(--font-size-sm)', color: 'var(--muted)' }}>
+          {v ? `${v}s` : '—'}
+        </span>
+      ),
+    },
     { title: '严重度', dataIndex: 'severity', width: 100, render: (v: AlertSeverity) => severityTag(v) },
     {
       title: '通知渠道',
       dataIndex: 'channelIds',
-      render: (ids: string[]) =>
-        ids.map((id) => {
+      render: (ids: string[] = []) =>
+        (ids ?? []).map((id) => {
           const ch = channels.find((c) => c.id === id);
-          return ch ? <Tag key={id} style={{ fontSize: 11 }}>{CHANNEL_LABEL[ch.type]}</Tag> : null;
+          return ch ? <Tag key={id} style={{ fontSize: 11 }}>{CHANNEL_LABEL[ch.type] ?? ch.type}（{ch.target}）</Tag> : null;
         }),
     },
-    {
-      title: '启用',
-      width: 80,
-      render: (_: unknown, r: AlertRule) => (
-        <Switch
-          size="small"
-          checked={enabled[r.id] ?? true}
-          onChange={(c) => setEnabled((s) => ({ ...s, [r.id]: c }))}
-        />
-      ),
-    },
-    {
-      title: '操作',
-      width: 80,
-      render: () => (
-        <Dropdown
-          menu={{
-            items: [
-              { key: 'edit', label: '编辑规则' },
-              { key: 'toggle', label: '启停' },
-              { type: 'divider' },
-              { key: 'del', label: '删除', danger: true },
-            ],
-          }}
-        >
-          <Button type="text" size="small" icon={<MoreHorizontal size={16} />} />
-        </Dropdown>
-      ),
-    },
+    { title: '创建时间', dataIndex: 'createdAt', width: 140, render: (v: string) => <span className="mono" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--meta)' }}>{fmt(v)}</span> },
   ];
 
   return (
@@ -155,7 +190,7 @@ export function MonitoringPage() {
                 { label: '24 小时', value: '24h' },
               ]}
             />
-            <Button icon={<RefreshCw size={16} />} onClick={() => { rulesQ.refetch(); alertsQ.refetch(); }}>
+            <Button icon={<RefreshCw size={16} />} onClick={() => { rulesQ.refetch(); alertsQ.refetch(); metricsQ.refetch(); }}>
               刷新
             </Button>
             <Button icon={<Webhook size={16} />} onClick={() => channelsQ.refetch()}>
@@ -167,7 +202,9 @@ export function MonitoringPage() {
 
       <Row gutter={[16, 16]}>
         {PANELS.map((p) => {
-          const value = p.kind === 'gauge' ? p.value : (series[p.key as keyof typeof series] ?? [])[ (series[p.key as keyof typeof series]?.length ?? 1) - 1 ] ?? 0;
+          const m = metricsQ.data?.map[p.key];
+          const points: Array<[number, number]> = m ? m.times.map((t, i) => [t * 1000, m.values[i]]) : [];
+          const latest = m && m.values.length ? m.values[m.values.length - 1] : 0;
           return (
             <Col xs={24} md={12} xxl={8} key={p.key}>
               <Card
@@ -177,21 +214,57 @@ export function MonitoringPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
                   <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--muted)' }}>{p.title}</span>
                   <span className="mono" style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, color: 'var(--fg)' }}>
-                    {typeof value === 'number' ? value : 0}
-                    <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--muted)', marginLeft: 2 }}>{p.unit}</span>
+                    {(() => {
+                      const shown = p.adaptive ? formatThroughput(latest) : null;
+                      return (
+                        <>
+                          {typeof latest === 'number' ? (shown ? shown.value : Math.round(latest * 10) / 10) : 0}
+                          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--muted)', marginLeft: 2 }}>{shown ? shown.unit : p.unit}</span>
+                        </>
+                      );
+                    })()}
                   </span>
                 </div>
                 {p.kind === 'line' && (
-                  <ReactECharts option={lineOption(p.title, series[p.key as keyof typeof series] as number[], p.colorIdx, p.thresholds)} height={180} />
+                  <ReactECharts option={lineOption(p.title, points, p.colorIdx, p.thresholds)} height={180} />
                 )}
                 {p.kind === 'bar' && (
-                  <ReactECharts option={barOption(p.title, series.disk, p.colorIdx)} height={180} />
+                  <ReactECharts option={barOption(p.title, points, p.colorIdx)} height={180} />
                 )}
-                {p.kind === 'gauge' && <ReactECharts option={gaugeOption(p.value ?? 0, p.title)} height={180} />}
               </Card>
             </Col>
           );
         })}
+        <Col xs={24} md={12} xxl={8}>
+          <Card
+            styles={{ body: { padding: 'var(--space-4)' } }}
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+              <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--muted)' }}>集群饱和度</span>
+              <span className="mono" style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, color: 'var(--fg)' }}>
+                {Math.round(metricsQ.data?.map.cpu?.values.slice(-1)[0] ?? 0)}
+                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--muted)', marginLeft: 2 }}>%</span>
+              </span>
+            </div>
+            <ReactECharts option={gaugeOption(metricsQ.data?.map.cpu?.values.slice(-1)[0] ?? 0, '集群饱和度')} height={180} />
+          </Card>
+        </Col>
+        <Col xs={24} md={12} xxl={8}>
+          <Card
+            styles={{ body: { padding: 'var(--space-4)' } }}
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+              <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--muted)' }}>节点在线率</span>
+              <span className="mono" style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, color: 'var(--fg)' }}>
+                {Math.round(metricsQ.data?.okVal ?? 0)}
+                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--muted)', marginLeft: 2 }}>%</span>
+              </span>
+            </div>
+            <ReactECharts option={gaugeOption(metricsQ.data?.okVal ?? 0, '节点在线率')} height={180} />
+          </Card>
+        </Col>
       </Row>
 
       <Card
@@ -225,10 +298,6 @@ export function MonitoringPage() {
             renderItem={(a) => (
               <List.Item
                 style={{ padding: '10px 0', borderBottom: '1px solid var(--border-soft)' }}
-                actions={[
-                  <Button key="ack" type="text" size="small" icon={<CheckCircle2 size={16} />} style={{ color: 'var(--success)' }} onClick={() => message.success('已确认告警')}>确认</Button>,
-                  <Button key="sil" type="text" size="small" icon={<VolumeX size={16} />} style={{ color: 'var(--muted)' }} onClick={() => message.success('已静默 1 小时')}>静默</Button>,
-                ]}
               >
                 <List.Item.Meta
                   avatar={<span style={{ color: severityVar(a.severity), display: 'flex', marginTop: 2 }}>{severityIcon(a.severity)}</span>}
@@ -255,11 +324,14 @@ export function MonitoringPage() {
         <Form
           id="rule-form"
           layout="vertical"
-          onFinish={(v) => createRule.mutate({ expr: v.expr, severity: v.severity, for: v.for ?? '5m' })}
+          onFinish={(v) => createRule.mutate({ name: v.name, expr: v.expr, severity: v.severity, forSeconds: v.forSeconds ?? 300 })}
         >
           <button id="rule-form-submit" type="submit" style={{ display: 'none' }} form="rule-form" />
+          <Form.Item name="name" label="规则名称" rules={[{ required: true, message: '请输入规则名称' }]}>
+            <Input placeholder="如 high-cpu" />
+          </Form.Item>
           <Form.Item name="expr" label="PromQL 表达式" rules={[{ required: true, message: '请输入表达式' }]}>
-            <Input className="mono" placeholder="cpu_usage_percent > 85" />
+            <Input className="mono" placeholder='100 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100 > 85' />
           </Form.Item>
           <Form.Item name="severity" label="严重度" initialValue="critical">
             <Select
@@ -270,8 +342,8 @@ export function MonitoringPage() {
               ]}
             />
           </Form.Item>
-          <Form.Item name="for" label="持续时长" initialValue="5m">
-            <Input className="mono" placeholder="5m" />
+          <Form.Item name="forSeconds" label="持续时长（秒）" initialValue={300}>
+            <InputNumber className="mono" min={0} step={60} style={{ width: '100%' }} />
           </Form.Item>
         </Form>
       </Modal>

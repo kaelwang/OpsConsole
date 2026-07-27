@@ -16,24 +16,24 @@ OpsConsole 是一个**自托管、统一 RBAC、薄而全**的运维控制台，
 
 | 能力域 | 功能 | 后端代理/数据来源 |
 |--------|------|-------------------|
-| 底座 | 统一登录 / RBAC / 审计 | 本地账号（内存或 PG）+ JWT；审计落 PG 或内存 |
+| 底座 | 统一登录 / RBAC / 审计 | 本地账号（PostgreSQL）+ JWT；审计落 PG |
 | 监控告警 | 指标查询 / 告警规则 / 通知 | VictoriaMetrics（PromQL 代理）|
 | 日志分析 | 全文检索 / 实时流 | OpenSearch（_search 代理 + WebSocket tail）|
-| 部署 CI/CD | 流水线列表 / 触发 / 回滚 | GitLab REST v4（含开发 mock 适配器）|
+| 部署 CI/CD | 流水线列表 / 触发 / 回滚 | GitLab REST v4 适配器 |
 | 主机 / K8s | 集群纳管 / Pod 查看 / exec | client-go v0.31（SA impersonation 透传 RBAC）|
 
 ### 组件形态
-- **后端**：Go 编译为单一静态二进制 `opsconsole-server`，监听 `:OPS_PORT`（默认 8080，绑定所有网卡）。
-  健康检查端点 `GET /healthz`。统一 API 前缀 `/api/v1`，Bearer JWT 鉴权。
-- **前端**：Vite 构建产物 `dist/`，由 `nginx:alpine` 托管，SPA（history 模式）fallback 到 `index.html`，
-  并把 `/api` 反向代理到后端服务 `opsconsole-backend:8080`（WebSocket 升级头一并转发）。
+- **单一二进制（默认 / 本地 / VM 部署）**：Go 编译为静态二进制 `opsconsole-server`，监听 `:OPS_PORT`（默认 8080，绑定所有网卡）。
+  它通过 `go:embed` 内嵌前端 `dist/`，由同一进程托管 SPA（history 模式 fallback 到 `index.html`）与 `GET /healthz`、
+  统一 API 前缀 `/api/v1`（Bearer JWT 鉴权）。前后端同源，无需反向代理。
+- **Kubernetes / Helm 部署**：前端由独立 `nginx:alpine` 镜像托管 `dist/`（SPA fallback），并把 `/api` 反向代理到
+  后端 Service `opsconsole-backend:8080`（WebSocket 升级头一并转发，见 `frontend/nginx.conf`）。
 - **四件套依赖（PG / Redis / VM / OS）**：生产环境视为**外部依赖**，由运维在集群内或托管服务中独立供给；
   开发环境由仓库根 `docker-compose.yml` 一键拉起单节点。
 
-### 双仓储模式（Dual Repository）
-后端每个仓储层定义 Go 接口，两套实现：
-- **内存模式**（默认，无需外部服务）：`OPS_REPOSITORY_MODE=memory`，种子数据内置，可完整跑通登录/RBAC/审计/代理端点。
-- **PG 模式**：`OPS_REPOSITORY_MODE=pg`，使用 `pgxpool` + RLS 多租户；审计、集群、部署等落 PG。
+### 仓储层（PostgreSQL only）
+后端每个仓储层定义 Go 接口，仅有一套 PostgreSQL 实现（`*pgXxxRepo`，基于 `pgxpool` + RLS 多租户）。
+`OPS_DATABASE_URL` 为启动必填项，缺失即退出；不存在内存 / 演示模式。
 
 ---
 
@@ -41,43 +41,39 @@ OpsConsole 是一个**自托管、统一 RBAC、薄而全**的运维控制台，
 
 ### 2.1 一键拉起依赖（单节点）
 ```bash
-docker compose up -d            # 启动 pg / redis / victoriametrics / opensearch
+docker compose up -d            # 启动 pg / redis / victoriametrics / opensearch / node-exporter / vmagent / vmalert
 docker compose down             # 停止（保留数据卷）
 docker compose down -v          # 重置（清空数据）
 ```
-PG 首次启动自动执行挂载的 `schema.sql`（建表 / RLS / 角色预置）。
+PG 首次启动自动执行挂载的 `schema.sql`（建表 / RLS / 角色预置）与 `seed.sql`（幂等种子数据：默认账号、集群、告警规则等）。
 
-### 2.2 后端（两种启动方式）
+### 2.2 后端（需 PostgreSQL + Redis）
 ```bash
-# 方式 A：直接运行已编译二进制（仓库已含 backend/opsconsole-server）
 cd backend
-OPS_JWT_SECRET=dev-insecure-secret-change-me \
-OPS_REPOSITORY_MODE=memory \
-./opsconsole-server
-# 监听 :8080，GET /healthz 返回 200
-
-# 方式 B：源码运行（开发）
-cd backend
+export OPS_DATABASE_URL="postgres://postgres:postgres_dev@localhost:5432/opsconsole?sslmode=disable"
+export OPS_REDIS_URL="redis://localhost:6379/0"
+export OPS_JWT_SECRET="dev-insecure-secret-change-me"
 go run ./cmd/api-server
+# 监听 :8080，GET /healthz 返回 200
 ```
+> 也可直接运行已编译二进制（环境变量同上）。`OPS_DATABASE_URL` 必填，缺失即退出。
 
-### 2.3 前端（mock 默认开，无需后端即可演示）
+### 2.3 前端（始终连接真实后端）
 ```bash
 cd frontend
 npm install
 npm run dev                    # Vite dev server，默认 http://localhost:5173
-# .env 中 VITE_USE_MOCK=true，UI 走内置 mock 数据
 ```
-要连真实后端：将 `frontend/.env` 改为 `VITE_USE_MOCK=false`，`VITE_API_BASE=/api/v1`，
-并让前端通过 nginx 或 vite proxy 将 `/api` 转发到后端 `:8080`。
+前端始终调用真实后端（`VITE_API_BASE=/api/v1`）。生产构建时由 `Makefile` 固化
+`VITE_API_BASE=/api/v1`，产物经 `go:embed` 嵌入后端二进制，单一进程同时托管前后端。
 
-### 2.4 端到端冒烟（内存模式即可）
+### 2.4 端到端冒烟
 ```bash
-# 登录拿 token
+# 登录拿 token（响应为 camelCase：accessToken / refreshToken / expiresIn / tenantId / role）
 TOKEN=$(curl -s -X POST localhost:8080/api/v1/login \
   -H 'Content-Type: application/json' \
   -d '{"email":"admin@corp.com","password":"opsconsole123"}' \
-  | sed -E 's/.*"access_token":"([^"]+)".*/\1/')
+  | sed -E 's/.*"accessToken":"([^"]+)".*/\1/')
 
 # 健康检查
 curl -i localhost:8080/healthz
@@ -102,7 +98,7 @@ docker build -f frontend/Dockerfile -t opsconsole/frontend:1.0.0 ./frontend
 ### 3.2 部署四件套依赖（外部供给）
 生产环境请独立供给以下服务，并把连接串通过 Secret 注入后端（见 §4、§5）：
 - PostgreSQL 16（主数据 + RLS 多租户）
-- Redis 7.2（会话 / 限流 / WebSocket PubSub）
+- Redis 7.2（会话：refresh token 存储）
 - VictoriaMetrics 1.101（时序指标，PromQL 兼容）
 - OpenSearch 2.17（日志全文检索 + analysis-ik 中文分词）
 
@@ -181,13 +177,13 @@ GitLab CI 的 `argocd-sync` 任务仅触发一次 `argocd app sync`；常态由 
 | 变量 | 默认值 | 来源 | 说明 |
 |------|--------|------|------|
 | `OPS_PORT` | `8080` | ConfigMap | 监听端口（绑定 `:PORT`，即所有网卡）。 |
-| `OPS_REPOSITORY_MODE` | `memory` | ConfigMap | `memory` / `pg`。 |
-| `OPS_DATABASE_URL` | 空 | **Secret** | PG 连接串；`pg` 模式必填（含凭据，故入 Secret）。 |
-| `OPS_REDIS_URL` | `redis://localhost:6379/0` | ConfigMap | 会话/限流/PubSub。 |
+| `OPS_DATABASE_URL` | 空 | **Secret** | PG 连接串；**必填**，缺失即退出（含凭据，故入 Secret）。 |
+| `OPS_REDIS_URL` | `redis://localhost:6379/0` | ConfigMap | 会话（refresh token 存储）。 |
 | `OPS_JWT_SECRET` | `dev-insecure-secret-change-me` | **Secret** | JWT 签名密钥，生产必须改为强随机。 |
 | `OPS_VICTORIAMETRICS_URL` | 空 | ConfigMap | 填后启用 `/monitoring/query`，否则返回 502。 |
+| `OPS_VMALERT_URL` | 空 | ConfigMap | 填后启用 `/monitoring/alerts`（vmalert 评估的活跃告警），否则返回 502。 |
 | `OPS_OPENSEARCH_URL` | 空 | ConfigMap | 填后启用 `/logging/search`、`/logging/tail`。 |
-| `OPS_GITLAB_BASE_URL` | 空 | ConfigMap | 与 Token 同填启用真实 GitLab CI/CD，否则用 dev mock。 |
+| `OPS_GITLAB_BASE_URL` | 空 | ConfigMap | 与 Token 同填启用真实 GitLab CI/CD，否则 `/deployment/pipelines` 返回 502（cicd provider not configured）。 |
 | `OPS_GITLAB_TOKEN` | 空 | **Secret** | GitLab 访问令牌。 |
 | `OPS_KUBECONFIG` | 空 | **Secret** | 填后启用真实 K8s Pod 列表 / exec（client-go impersonation）。 |
 
@@ -197,33 +193,33 @@ GitLab CI 的 `argocd-sync` 任务仅触发一次 `argocd app sync`；常态由 
 ### 4.2 前端（构建期，由 Vite 在 `npm run build` 时固化进产物）
 | 变量 | 默认值（生产构建） | 说明 |
 |------|--------------------|------|
-| `VITE_USE_MOCK` | `false`（生产）/ `true`（开发）| 是否使用内置 mock 数据。 |
-| `VITE_API_BASE` | `/api/v1` | 后端 API 前缀；经前端 nginx / ingress 的 `/api` 代理同源访问。 |
+| `VITE_API_BASE` | `/api/v1` | 后端 API 前缀；经前端 nginx / ingress 的 `/api` 代理同源访问。前端已移除 mock 模式，始终请求真实后端。 |
 
 > 前端 VITE_* 是**构建期**变量，运行时改环境变量无效；改了需重新 `npm run build` 打镜像。
 
 ---
 
-## 5. 种子账号（内存模式内置；PG 模式需自行初始化）
+## 5. 种子账号（由 `seed.sql` 初始化）
 
 | 邮箱 | 密码 | 角色 | 权限 |
 |------|------|------|------|
 | `admin@corp.com` | `opsconsole123` | `owner` | 超管，全量读写 |
 | `viewer@corp.com` | `opsconsole123` | `viewer` | 只读，越权操作返回 403 并记审计 |
 
-> PG 模式不会自动建种子账号；请参照 `schema.sql` 与后端 `store` 种子逻辑在 PG 侧初始化，
-> 或使用外部目录（LDAP/AD/OIDC）接入。
+> `seed.sql` 以幂等方式创建上述默认账号、租户与成员关系（所有 `INSERT` 均 `ON CONFLICT DO NOTHING`）。
+> 开发环境由 `docker-compose.yml` 自动挂载执行；独立 PostgreSQL 需先执行 `schema.sql` 再执行 `seed.sql`。
+> 也可接入外部目录（LDAP/AD/OIDC）替代本地账号。
 
 ---
 
 ## 6. 已知限制
 
-- **内存模式不持久**：`OPS_REPOSITORY_MODE=memory` 下所有数据（账号/审计/集群/部署）重启即丢失，
-  仅供演示与联调；生产须用 `pg` 模式 + PostgreSQL 16 + `schema.sql`。
+- **PG 为唯一数据存储**：所有数据（账号/审计/集群/部署/告警/通知）持久化于 PostgreSQL 16 + `schema.sql`
+  （RLS 多租户），无内存 / 演示模式，服务重启不丢数据。
 - **四件套需在线才联调**：VictoriaMetrics / OpenSearch / GitLab / K8s 未配置对应 `OPS_*` 时，
   相关端点返回 502/空数据，后端**不会伪造**指标/日志/流水线数据。
 - **K8s 真实对接需 `OPS_KUBECONFIG`**：Pod 列表与容器 exec 依赖真实 kubeconfig，否则返回 502 并说明不可用。
-- **GitLab 真实对接需 `OPS_GITLAB_BASE_URL` + `OPS_GITLAB_TOKEN`**：否则使用内置 dev mock 适配器。
+- **GitLab 真实对接需 `OPS_GITLAB_BASE_URL` + `OPS_GITLAB_TOKEN`**：否则 `/deployment/pipelines` 返回 502（cicd provider not configured），后端不伪造流水线。
 - **VM 高基数查询**：全量扫描可能超时；生产应配置查询超时 + recording rules + 每租户 QPS 上限（见 SPEC §11）。
 - **OpenSearch 中文分词**：需预装 analysis-ik 插件（开发 compose 已用 `medcl/opensearch-ik:2.17.0`）。
 - **client-go 版本对齐**：必须 v0.31.x 对应 K8s 1.31，否则 informer/impersonation 报错。
@@ -255,7 +251,7 @@ GitLab CI 的 `argocd-sync` 任务仅触发一次 `argocd app sync`；常态由 
 | `frontend/.dockerignore` | 构建 | 排除 node_modules/dist，避免污染镜像构建上下文 |
 | `backend/.dockerignore` | 构建 | 排除预编译二进制/标记，避免带入构建上下文 |
 | `OPS_SELFCHECK.md` | 文档 | 运维自检报告（YAML/模板/引用/go vet 校验结果）|
-| `DELIVERY.md` | 文档 | 本文档 |
+| `README.md` | 文档 | 本文档（部署与运维说明） |
 
 ---
 
@@ -271,3 +267,37 @@ GitLab CI 的 `argocd-sync` 任务仅触发一次 `argocd app sync`；常态由 
   - 后端 Go 构建阶段以本机 `go vet ./...`（退出码 0）+ `go build` 验证可编译（Go 1.26 工具链），
     与 `backend/Dockerfile` 构建指令一致。
 - Dockerfile / Helm 模板的最终镜像构建与集群部署需在具备 Docker/K8s 的环境执行。
+
+---
+
+## 9. 近期变更记录（前端 ↔ 后端契约对齐）
+
+此前存在的 mock 开关（`VITE_USE_MOCK`）掩盖了**前端类型与后端序列化从未对齐**的问题。
+移除该开关、统一为真实后端模式后访问登录即 404，并已顺带修复一组契约错配。
+以下变更均已重建前端（真实模式）并重新打包 Linux 二进制部署至 `http://192.129.221.208:8080` 验证通过。
+
+### 9.1 登录 404 根因与修复
+- **根因**：前端真实模式请求 `POST /api/v1/auth/login`，而后端路由为 `POST /api/v1/login`（无 `/auth` 前缀）→ 404。
+- **修复**：`frontend/src/services/api/auth.ts` 登录路径由 `/auth/login` 改为 `/login`。
+
+### 9.2 序列化字段对齐（camelCase）
+后端 `model` 之前大多无 json tag，Go 默认输出 `TenantID` / `UserID` 等 PascalCase，与前端 camelCase 类型不符。
+- `backend/internal/model/model.go`：所有对外结构统一加 camelCase json tag。
+- `backend/internal/platform/auth/auth.go`：`TokenResponse` 补全 `tenantId` / `role` 字段，登录响应现返回
+  `{ accessToken, expiresIn, tenantId, role }`。
+
+### 9.3 RBAC 端点与字段对齐
+- **新增** `GET /api/v1/rbac/roles`（`rbac.go` + `router.go`），返回角色及其权限集合，对齐前端 `RolePermission`。
+- `frontend/src/services/api/rbac.ts`：
+  - `listMembers` 由 `/rbac/roles` 改为 `/rbac/memberships`（对齐后端已有端点）。
+  - `assignRole` 由 `/rbac/assign` 改为 `/rbac/memberships`，请求体字段由 `userId` 改为 `user_id`（对齐后端 `AssignHandler`）。
+
+### 9.4 构建与部署
+- 前端以真实后端模式 `npm run build` 重新构建（无 mock 开关），产物嵌入 `backend/cmd/api-server/web/dist`。
+- 重新编译 Linux 二进制：`CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ... -o bin/opsconsole-server-linux-amd64`。
+- 已部署并验证：登录、`/rbac/memberships`、`/rbac/roles`、`/infrastructure/clusters`、`/monitoring/alert-rules`
+  均返回正确 camelCase 真实数据，服务 `active`、`/healthz` 正常、SPA 200。
+
+### 9.5 仍待打磨（真实模式已知差异）
+- `/rbac/memberships` 目前仅返回 `userId` / `role`，缺 `displayName` / `email`（需后端 join users 表才能显示成员名）。
+- 通知 / 审计等个别「创建类」接口字段仍可能存在语义差异，属后续真实模式打磨项；登录与主列表链路已打通。

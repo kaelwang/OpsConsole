@@ -2,7 +2,7 @@
 # 企业运维控制台 (OpsConsole) — 开发单节点编排 (MVP)
 # -----------------------------------------------------------------------------
 # 用途：本地开发依赖一键拉起，非生产环境。
-# 组件：PostgreSQL 16（主数据 + RLS 多租户）/ Redis 7.2（会话/限流/PubSub）/
+# 组件：PostgreSQL 16（主数据 + RLS 多租户）/ Redis 7.2（会话：refresh token 存储）/
 #        VictoriaMetrics v1.101（时序指标）/ OpenSearch 2.17（日志全文检索 + IK 分词）。
 # 启动：docker compose up -d
 # 停止：docker compose down          （保留数据卷）
@@ -25,6 +25,7 @@ services:
     volumes:
       - pg-data:/var/lib/postgresql/data
       - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro   # PG 初始化脚本挂载
+      - ./seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro       # 真实种子数据（幂等）
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d opsconsole"]
       interval: 10s
@@ -96,6 +97,54 @@ services:
       interval: 15s
       timeout: 10s
       retries: 10
+    networks: [opsconsole-net]
+
+  # ---------------- node_exporter v1.8.2（主机指标采集，供 vmagent 抓取） ----------------
+  nodeexporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: opsconsole-nodeexporter
+    command:
+      - "--path.rootfs=/"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks: [opsconsole-net]
+
+  # ---------------- vmagent v1.101（抓取 exporter 并 remote_write 到 VictoriaMetrics） ----------------
+  vmagent:
+    image: victoriametrics/vmagent:v1.101.0
+    container_name: opsconsole-vmagent
+    depends_on:
+      - victoriametrics
+      - nodeexporter
+    command:
+      - "--promscrape.config=/etc/vmagent.yml"
+      - "--remoteWrite.url=http://opsconsole-vm:8428/api/v1/write"
+    volumes:
+      - ./deploy/vmagent.yml:/etc/vmagent.yml:ro
+    networks: [opsconsole-net]
+
+  # ---------------- vmalert v1.101（评估告警规则，数据源 VictoriaMetrics） ----------------
+  # 活跃告警通过 /api/v1/alerts 暴露，由后端 monitoring 模块透传给前端。
+  vmalert:
+    image: victoriametrics/vmalert:v1.101.0
+    container_name: opsconsole-vmalert
+    depends_on:
+      - victoriametrics
+    command:
+      - "--datasource.url=http://opsconsole-vm:8428"
+      - "--remoteWrite.url=http://opsconsole-vm:8428/api/v1/write"
+      - "--rule=/etc/vmalert-rules.yml"
+      - "--notifier.blackhole"
+      - "--httpListenAddr=:8080"
+    volumes:
+      - ./deploy/vmalert-rules.yml:/etc/vmalert-rules.yml:ro
+    ports:
+      - "8081:8080"
     networks: [opsconsole-net]
 
 volumes:

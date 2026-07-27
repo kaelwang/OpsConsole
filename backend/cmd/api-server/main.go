@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/opsconsole/backend/internal/audit"
 	"github.com/opsconsole/backend/internal/config"
@@ -17,93 +18,56 @@ import (
 	"github.com/opsconsole/backend/internal/pkg/k8sclient"
 	"github.com/opsconsole/backend/internal/pkg/opensearch"
 	"github.com/opsconsole/backend/internal/pkg/victoriametrics"
+	"github.com/opsconsole/backend/internal/pkg/vmalert"
 	"github.com/opsconsole/backend/internal/platform/auth"
 	"github.com/opsconsole/backend/internal/platform/rbac"
-	"github.com/opsconsole/backend/internal/platform/store"
 )
 
 func main() {
 	cfg := config.Load()
-	mem := store.NewMemDB()
 
-	// Optional PostgreSQL pool (only when PG mode is enabled).
-	var pool *pgxpool.Pool
-	if cfg.IsPG() {
-		p, err := pgxpool.New(context.Background(), cfg.DatabaseURL)
-		if err != nil {
-			log.Fatalf("postgres connect: %v", err)
-		}
-		pool = p
-		defer pool.Close()
+	// PostgreSQL is the only supported repository backend.
+	if cfg.DatabaseURL == "" {
+		log.Fatal("OPS_DATABASE_URL is required")
+	}
+	pool, err := pgxpool.New(context.Background(), cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("postgres connect: %v", err)
+	}
+	defer pool.Close()
+	if err := pool.Ping(context.Background()); err != nil {
+		log.Fatalf("postgres ping: %v", err)
 	}
 
-	// Audit (dual repository).
-	var auditRepo audit.Repository
-	if pool != nil {
-		auditRepo = audit.NewPGRepository(pool)
-	} else {
-		auditRepo = audit.NewMemRepository(mem)
+	// Redis-backed session store.
+	redisOpts, err := redis.ParseURL(cfg.RedisURL)
+	if err != nil {
+		log.Fatalf("redis url: %v", err)
 	}
-	auditSvc := audit.NewService(auditRepo)
+	session := auth.NewRedisStore(redis.NewClient(redisOpts))
 
-	// Auth (dual repository).
-	var userRepo auth.UserRepository
-	if pool != nil {
-		userRepo = auth.NewPGUserRepo(pool)
-	} else {
-		userRepo = auth.NewMemUserRepo(mem)
-	}
-	var session auth.SessionStore = auth.NewMemStore()
-	authSvc := auth.NewService(userRepo, session, cfg.JWTSecret)
+	// Repositories (PostgreSQL only).
+	auditSvc := audit.NewService(audit.NewPGRepository(pool))
+	authSvc := auth.NewService(auth.NewPGUserRepo(pool), session, cfg.JWTSecret)
+	assignRepo := rbac.NewPGAssignRepository(pool)
+	alertRepo := monitoring.NewPGAlertRepository(pool)
+	notifRepo := monitoring.NewPGNotificationRepository(pool)
+	deployRepo := deployment.NewPGRepository(pool)
+	clusterRepo := infrastructure.NewPGClusterRepository(pool)
+	hostRepo := infrastructure.NewPGHostRepository(pool)
 
-	// RBAC assignment (dual repository).
-	var assignRepo rbac.AssignRepository
-	if pool != nil {
-		assignRepo = rbac.NewPGAssignRepository(pool)
-	} else {
-		assignRepo = rbac.NewMemAssignRepository(mem)
-	}
-
-	// Monitoring (dual repository).
-	var alertRepo monitoring.AlertRuleRepository
-	var notifRepo monitoring.NotificationRepository
-	if pool != nil {
-		alertRepo = monitoring.NewPGAlertRepository(pool)
-		notifRepo = monitoring.NewPGNotificationRepository(pool)
-	} else {
-		alertRepo = monitoring.NewMemAlertRepository(mem)
-		notifRepo = monitoring.NewMemNotificationRepository(mem)
-	}
-
-	// Deployment (dual repository).
-	var deployRepo deployment.DeploymentRepository
-	if pool != nil {
-		deployRepo = deployment.NewPGRepository(pool)
-	} else {
-		deployRepo = deployment.NewMemRepository(mem)
-	}
-
-	// Infrastructure (dual repository).
-	var clusterRepo infrastructure.ClusterRepository
-	var hostRepo infrastructure.HostRepository
-	if pool != nil {
-		clusterRepo = infrastructure.NewPGClusterRepository(pool)
-		hostRepo = infrastructure.NewPGHostRepository(pool)
-	} else {
-		clusterRepo = infrastructure.NewMemClusterRepository(mem)
-		hostRepo = infrastructure.NewMemHostRepository(mem)
-	}
-
-	// External service clients.
+	// External service clients. Unset URLs surface explicit 502 upstream
+	// errors instead of fabricated data.
 	vm := victoriametrics.New(cfg.VictoriaMetricsURL)
+	va := vmalert.New(cfg.VMAlertURL)
 	osClient := opensearch.New(cfg.OpenSearchURL)
-	var cicd gitlab.CICDProvider = gitlab.NewDevAdapter()
+	var cicd gitlab.CICDProvider
 	if cfg.GitLabBaseURL != "" && cfg.GitLabToken != "" {
 		cicd = gitlab.NewGitLabAdapter(cfg.GitLabBaseURL, cfg.GitLabToken)
 	}
 
 	// Domain services.
-	monSvc := monitoring.NewService(alertRepo, notifRepo, vm, auditSvc)
+	monSvc := monitoring.NewService(alertRepo, notifRepo, vm, va, auditSvc)
 	logSvc := logging.NewService(osClient, auditSvc)
 	depSvc := deployment.NewService(deployRepo, cicd, auditSvc)
 
@@ -123,7 +87,7 @@ func main() {
 
 	r := buildRouter(cfg, authSvc, auditSvc, assignRepo, monSvc, logSvc, depSvc, infraSvc)
 	addr := ":" + cfg.Port
-	log.Printf("opsconsole api listening on %s (repository=%s)", addr, cfg.RepositoryMode)
+	log.Printf("opsconsole api listening on %s (repository=postgres)", addr)
 	if err := r.Run(addr); err != nil {
 		log.Fatalf("server error: %v", err)
 	}

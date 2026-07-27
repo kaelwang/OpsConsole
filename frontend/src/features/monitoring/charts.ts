@@ -2,19 +2,9 @@ import * as echarts from 'echarts';
 import type { EChartsOption } from 'echarts';
 import { chartAxisColor, chartSeriesColor, chartTextColor, semanticColor } from '@/components/chart';
 
-export function genSeries(base: number, variance: number, n = 48): number[] {
-  const out: number[] = [];
-  let v = base;
-  for (let i = 0; i < n; i++) {
-    v = Math.max(0, Math.min(100, v + Math.sin(i / 4) * variance * 0.4 + (Math.random() - 0.5) * variance));
-    out.push(Math.round(v * 10) / 10);
-  }
-  return out;
-}
-
 export function lineOption(
   name: string,
-  points: number[],
+  points: Array<[number, number]>,
   colorIdx: number,
   thresholds?: { warn: number; danger: number },
 ): EChartsOption {
@@ -23,15 +13,15 @@ export function lineOption(
     grid: { left: 44, right: 16, top: 24, bottom: 28 },
     tooltip: { trigger: 'axis', backgroundColor: 'var(--surface-2)', borderColor: 'var(--border)', textStyle: { color: 'var(--fg)' } },
     xAxis: {
-      type: 'category',
-      data: points.map((_, i) => i),
+      type: 'time',
       axisLine: { lineStyle: { color: chartAxisColor() } },
       axisLabel: { color: chartTextColor(), fontSize: 11 },
       axisTick: { show: false },
+      splitLine: { show: false },
     },
     yAxis: {
       type: 'value',
-      max: 100,
+      max: thresholds ? 100 : undefined,
       axisLabel: { color: chartTextColor(), fontSize: 11 },
       splitLine: { lineStyle: { color: chartAxisColor() } },
     },
@@ -65,14 +55,13 @@ export function lineOption(
   };
 }
 
-export function barOption(name: string, points: number[], colorIdx: number): EChartsOption {
+export function barOption(name: string, points: Array<[number, number]>, colorIdx: number): EChartsOption {
   const color = chartSeriesColor(colorIdx);
   return {
     grid: { left: 44, right: 16, top: 24, bottom: 28 },
     tooltip: { trigger: 'axis', backgroundColor: 'var(--surface-2)', borderColor: 'var(--border)', textStyle: { color: 'var(--fg)' } },
     xAxis: {
-      type: 'category',
-      data: points.map((_, i) => `${i}`),
+      type: 'time',
       axisLine: { lineStyle: { color: chartAxisColor() } },
       axisLabel: { color: chartTextColor(), fontSize: 11 },
     },

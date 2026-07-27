@@ -34,6 +34,11 @@ func (s *Service) ListPipelines(ctx context.Context, projectID string) ([]gitlab
 	return s.cicd.ListPipelines(ctx, projectID)
 }
 
+// ListDeployments returns persisted deployment records for the tenant.
+func (s *Service) ListDeployments(ctx context.Context, tenantID string) ([]model.Deployment, error) {
+	return s.repo.List(ctx, tenantID)
+}
+
 // Trigger starts a deployment and records a deployment record.
 func (s *Service) Trigger(ctx context.Context, tenantID, projectID, ref string) (*model.Deployment, error) {
 	if s.cicd == nil {
