@@ -1,0 +1,19 @@
+groups:
+    - name: opsconsole-tenant-rules
+      rules:
+        - alert: High_CPU
+          expr: cpu_usage > 80
+          for: 300s
+          labels:
+            channels: 77777777-7777-7777-7777-777777777777
+            severity: warning
+          annotations:
+            summary: High CPU
+        - alert: High_Memory
+          expr: memory_usage > 90
+          for: 120s
+          labels:
+            channels: 77777777-7777-7777-7777-777777777777
+            severity: critical
+          annotations:
+            summary: High Memory

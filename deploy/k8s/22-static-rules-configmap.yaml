@@ -1,0 +1,54 @@
+# 22-static-rules-configmap.yaml
+# 与 docker-compose 里的 deploy/vmalert-rules.yml 一致（节点级静态告警规则）。
+# 后端还会把“按租户动态生成的规则”写到共享卷 /generated/vmalert-rules.yml，
+# vmalert sidecar 同时加载这两个 --rule 文件。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opsconsole-static-rules
+  namespace: opsconsole
+data:
+  vmalert-rules.yml: |
+    groups:
+      - name: opsconsole-node
+        rules:
+          - alert: HighCPULoad
+            expr: 100 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100 > 80
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "节点 CPU 负载过高 (>80%)"
+              description: "实例 {{ $labels.instance }} 的 CPU 使用率持续 5 分钟高于 80%"
+          - alert: HighMemoryUsage
+            expr: (1 - sum(node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes)) * 100 > 85
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "节点内存使用率过高 (>85%)"
+              description: "实例 {{ $labels.instance }} 的内存使用率持续 5 分钟高于 85%"
+          - alert: HighDiskUsage
+            expr: max((1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"}) * 100) > 90
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "节点磁盘使用率过高 (>90%)"
+              description: "实例 {{ $labels.instance }} 的磁盘使用率持续 5 分钟高于 90%"
+          - alert: NodeDown
+            expr: up{job="node"} == 0
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "节点离线"
+              description: "实例 {{ $labels.instance }} 已超过 2 分钟无法抓取"
+          # 演示用：持续触发的告警，用于验证实时告警面板链路（可随时删除）。
+          - alert: DemoAlwaysFiring
+            expr: vector(1) > 0
+            labels:
+              severity: info
+            annotations:
+              summary: "演示告警：实时告警链路已连通"
+              description: "该告警由 vector(1) > 0 持续触发，用于验证实时告警面板，可随时删除。"

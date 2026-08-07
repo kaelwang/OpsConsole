@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Card,
@@ -7,7 +7,6 @@ import {
   Drawer,
   Empty,
   List,
-  Progress,
   Row,
   Segmented,
   Spin,
@@ -19,26 +18,12 @@ import { ChevronRight, History, Inbox, User as UserIcon } from '@/components/ico
 import { PageHeader } from '@/components/PageHeader';
 import { StatStrip } from './StatStrip';
 import { MetricGrid } from './MetricGrid';
-import { auditTag, deploymentTag, deploymentVar, severityIcon, severityVar, usageVar } from '@/components/status';
+import { auditTag, deploymentTag, deploymentVar, severityIcon, severityVar } from '@/components/status';
 import { listClusters } from '@/services/api/infrastructure';
-import { listAlerts, queryMetrics } from '@/services/api/monitoring';
+import { listAlerts } from '@/services/api/monitoring';
 import { listPipelines, listRecentDeployments } from '@/services/api/deployment';
 import { listAudit } from '@/services/api/audit';
-import type { AuditLog, QueryResult } from '@/types/api';
-
-// 实时利用率（即时向量查询，数据源 VictoriaMetrics）
-const UTIL_EXPRS = [
-  { label: 'CPU 使用率', expr: '100 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100' },
-  { label: '内存使用率', expr: '(1 - sum(node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes)) * 100' },
-  { label: '磁盘使用率', expr: 'max((1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"}) * 100)' },
-];
-
-function instantValue(res: QueryResult): number {
-  const item = res.data?.result?.[0];
-  if (item?.value) return Number(item.value[1]) || 0;
-  const last = item?.values?.slice(-1)[0];
-  return last ? Number(last[1]) || 0 : 0;
-}
+import type { AuditLog } from '@/types/api';
 
 const fmt = (iso: string) =>
   new Date(iso).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -60,14 +45,6 @@ export function HomePage() {
   const pipelinesQ = useQuery({ queryKey: ['pipelines'], queryFn: () => listPipelines() });
   const deploysQ = useQuery({ queryKey: ['deployments', 'recent'], queryFn: listRecentDeployments });
   const auditQ = useQuery({ queryKey: ['audit', 'home'], queryFn: () => listAudit({ page: 1, limit: 8 }) });
-  const utilQ = useQuery({
-    queryKey: ['home-util'],
-    queryFn: async () => {
-      const res = await Promise.all(UTIL_EXPRS.map((u) => queryMetrics(u.expr)));
-      return res.map(instantValue);
-    },
-    refetchInterval: 60_000,
-  });
 
   const loading = clustersQ.isLoading || alertsQ.isLoading || pipelinesQ.isLoading || deploysQ.isLoading || auditQ.isLoading;
   const clusters = clustersQ.data ?? [];
@@ -75,15 +52,6 @@ export function HomePage() {
   const pipelines = pipelinesQ.data ?? [];
   const deploys = deploysQ.data ?? [];
   const audit = auditQ.data?.items ?? [];
-
-  const util = useMemo(
-    () =>
-      UTIL_EXPRS.map((u, i) => ({
-        label: u.label,
-        pct: Math.round(utilQ.data?.[i] ?? 0),
-      })),
-    [utilQ.data],
-  );
 
   const auditCols = [
     { title: '时间', dataIndex: 'createdAt', width: 110, render: (v: string) => <span className="mono" style={{ color: 'var(--meta)', fontSize: 'var(--font-size-xs)' }}>{fmt(v)}</span> },
@@ -187,24 +155,6 @@ export function HomePage() {
             </Card>
           </Col>
         </Row>
-
-        <Card
-          styles={{ body: { padding: 'var(--space-4)' } }}
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}
-        >
-          <SectionTitle>集群资源利用率</SectionTitle>
-          <Row gutter={[24, 16]}>
-            {util.map((u) => (
-              <Col xs={24} md={8} key={u.label}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--muted)' }}>{u.label}</span>
-                  <span className="mono" style={{ fontSize: 'var(--font-size-sm)', color: 'var(--fg)' }}>{u.pct}%</span>
-                </div>
-                <Progress percent={u.pct} strokeColor={usageVar(u.pct)} showInfo={false} strokeWidth={8} />
-              </Col>
-            ))}
-          </Row>
-        </Card>
 
         <Card
           styles={{ body: { padding: 'var(--space-4)' } }}

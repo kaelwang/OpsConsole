@@ -1,0 +1,30 @@
+# 30-ingress.yaml
+# 把后端（内嵌前端 + /api/v1）暴露到集群外。后端同时托管 SPA 与 API，
+# 所以一个 Ingress 规则即可：/api 走后端，其余走根路径（SPA）。
+#
+# 前置：集群里要有 Ingress Controller（如 ingress-nginx）。
+#   kind：  kind create cluster --config <(kind: ingress-nginx enabled> 见 README)
+#   k3s：   默认已带 traefik；把下面 ingressClassName 改成 traefik。
+#
+# 最简本地验证（无需 Ingress）：kubectl -n opsconsole port-forward svc/opsconsole-backend 8080:8080
+# 然后浏览器访问 http://localhost:8080
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: opsconsole
+  namespace: opsconsole
+  # 后端本身同时托管 SPA（/）与 API（/api/v1），直接透传即可，不要做 rewrite，
+  # 否则会把 /api/v1/... 改写成 / 导致接口 404。
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: opsconsole.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: opsconsole-backend
+                port:
+                  number: 8080

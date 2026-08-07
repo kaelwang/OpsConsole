@@ -4,7 +4,6 @@ import type {
   AlertRule,
   AlertRuleCreateRequest,
   AlertSeverity,
-  AlertStatus,
   NotificationChannel,
   NotificationChannelCreateRequest,
   Page,
@@ -13,23 +12,37 @@ import type {
 
 export interface ListAlertsParams {
   severity?: AlertSeverity;
-  status?: AlertStatus;
   page?: number;
   limit?: number;
 }
 
-/** GET /monitoring/query — PromQL 代理（step + start/end 触发区间趋势查询） */
-export async function queryMetrics(
-  expr: string,
-  step?: string,
-  start?: number,
-  end?: number,
-): Promise<QueryResult> {
-  const params: Record<string, string | number> = { expr };
-  if (step) params.step = step;
-  if (start != null) params.start = start;
-  if (end != null) params.end = end;
-  return get<QueryResult>('/monitoring/query', params);
+export interface QueryMetricsParams {
+  expr: string;
+  step?: string;
+  start?: string | number;
+  end?: string | number;
+  instance?: string;
+  node?: string;
+  cluster?: string;
+  namespace?: string;
+}
+
+/** GET /monitoring/query — PromQL 代理（step + start/end 触发区间趋势查询），可按 node/cluster/instance/namespace 过滤 */
+export async function queryMetrics(params: QueryMetricsParams): Promise<QueryResult> {
+  const q: Record<string, string | number> = { expr: params.expr };
+  if (params.step) q.step = params.step;
+  if (params.start != null) q.start = params.start;
+  if (params.end != null) q.end = params.end;
+  if (params.instance) q.instance = params.instance;
+  if (params.node) q.node = params.node;
+  if (params.cluster) q.cluster = params.cluster;
+  if (params.namespace) q.namespace = params.namespace;
+  return get<QueryResult>('/monitoring/query', q);
+}
+
+/** GET /monitoring/nodes — 当前被 node_exporter 采集的节点列表 */
+export async function listNodes(): Promise<string[]> {
+  return get<string[]>('/monitoring/nodes');
 }
 
 /** GET /monitoring/alert-rules */

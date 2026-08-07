@@ -69,3 +69,26 @@ func (c *Client) ListAlerts(ctx context.Context) ([]Alert, error) {
 	}
 	return out.Data.Alerts, nil
 }
+
+// Reload triggers a rule-file reload via POST /-/reload so vmalert picks up
+// newly generated rule files. Requires vmalert to expose the lifecycle endpoint
+// (it does by default on its httpListenAddr).
+func (c *Client) Reload(ctx context.Context) error {
+	if c == nil {
+		return fmt.Errorf("vmalert not configured")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/-/reload", nil)
+	if err != nil {
+		return err
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("vmalert reload status %d", resp.StatusCode)
+	}
+	return nil
+}

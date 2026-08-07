@@ -1,0 +1,149 @@
+# 20-backend.yaml
+# OpsConsole 后端（单二进制，内嵌前端 SPA）。
+# 关键架构点：Alertmanager + vmalert 以 **sidecar** 形式与本容器同一 Pod 运行，
+# 通过 Pod 内共享的 emptyDir 卷 /generated 交换“后端动态生成的告警配置”，
+# 等价于 docker-compose 里的 bind mount，但无需 RWX 共享盘。
+#
+# 流程：
+#   1) init seed-config 写入最小可用 alertmanager.yml / vmalert-rules.yml（防止 sidecar 启动时文件缺失）。
+#   2) init wait-for-pg 等到 PostgreSQL 就绪（否则后端启动会 Fatal 退出）。
+#   3) 后端启动 → 把按通知渠道/规则动态生成的配置写到 /generated → 调用 sidecar 的 /-/reload 热加载。
+#
+# 镜像：默认 opsconsole-backend:localbuild（无仓库时 docker save/load 到各节点）。
+# 有仓库时把下面 image 改成 $REG/opsconsole-backend:$TAG 即可。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opsconsole-backend
+  namespace: opsconsole
+  labels: { app: opsconsole-backend }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: opsconsole-backend }
+  template:
+    metadata:
+      labels: { app: opsconsole-backend }
+    spec:
+      initContainers:
+        # 写入最小可用配置，避免 alertmanager/vmalert 因文件缺失而启动失败
+        - name: seed-config
+          image: busybox:1.36
+          command: ["sh", "-c"]
+          args:
+            - |
+              cat > /generated/alertmanager.yml <<'EOF'
+              route:
+                receiver: blackhole
+              receivers:
+              - name: blackhole
+              EOF
+              cat > /generated/vmalert-rules.yml <<'EOF'
+              groups: []
+              EOF
+          volumeMounts:
+            - name: generated
+              mountPath: /generated
+        # 等待 PostgreSQL 就绪
+        - name: wait-for-pg
+          image: postgres:16-alpine
+          command: ["sh", "-c"]
+          args:
+            - "until pg_isready -h opsconsole-postgres -U postgres; do echo 'waiting for pg...'; sleep 2; done"
+      containers:
+        # ---------------- 后端（内嵌前端） ----------------
+        - name: backend
+          # 无镜像仓库时：把构建好的镜像 docker save / ctr import 到每个节点。
+          # 注意：本环境用 ctr import 导入的镜像不会写入 repoDigests，
+          # 因此不能用 repo@sha256:... 的 digest 引用（会导致 ImagePullBackOff）。
+          # 只能用标签引用。务必在「全部节点」都 ctr import 新镜像后再 apply/restart，
+          # 否则 Pod 漂到没更新镜像的节点会静默复用旧镜像。
+          image: opsconsole-backend:localbuild
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - configMapRef:
+                name: opsconsole-config
+            - secretRef:
+                name: opsconsole-secrets
+          volumeMounts:
+            - name: generated
+              mountPath: /generated
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          startupProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            failureThreshold: 30
+            periodSeconds: 2
+          resources:
+            requests: { cpu: "250m", memory: "256Mi" }
+            limits:   { cpu: "1",    memory: "1Gi" }
+        # ---------------- Alertmanager v0.27 (sidecar) ----------------
+        - name: alertmanager
+          image: prom/alertmanager:v0.27.0
+          args:
+            - "--config.file=/generated/alertmanager.yml"
+            - "--storage.path=/alertmanager"
+          ports:
+            - containerPort: 9093
+          volumeMounts:
+            - name: generated
+              mountPath: /generated
+            - name: am-data
+              mountPath: /alertmanager
+        # ---------------- vmalert v1.101 (sidecar) ----------------
+        - name: vmalert
+          image: victoriametrics/vmalert:v1.101.0
+          args:
+            - "--datasource.url=http://opsconsole-victoriametrics:8428"
+            - "--remoteWrite.url=http://opsconsole-victoriametrics:8428/api/v1/write"
+            - "--rule=/etc/static/vmalert-rules.yml"
+            - "--rule=/generated/vmalert-rules.yml"
+            - "--notifier.url=http://localhost:9093"
+            - "--httpListenAddr=:8429"
+          ports:
+            - containerPort: 8429
+          volumeMounts:
+            - name: generated
+              mountPath: /generated
+            - name: static-rules
+              mountPath: /etc/static/vmalert-rules.yml
+              subPath: vmalert-rules.yml
+      volumes:
+        - name: generated
+          emptyDir: {}
+        - name: am-data
+          emptyDir: {}
+        - name: static-rules
+          configMap:
+            name: opsconsole-static-rules
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: opsconsole-backend
+  namespace: opsconsole
+  labels: { app: opsconsole-backend }
+spec:
+  # LoadBalancer：配合集群里的 MetalLB，自动从地址池分配外部 IP，
+  # 集群外直接 http://<EXTERNAL-IP>:8080 访问（无需 port-forward）。
+  type: LoadBalancer
+  # Local：保留真实客户端 IP（不做 SNAT），让后端的 per-IP 限流按真实用户生效，
+  # 否则所有请求都表现为 LB/节点 IP，共用一个限流桶，极易触发 rate limit。
+  externalTrafficPolicy: Local
+  selector: { app: opsconsole-backend }
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+    # 暴露 alertmanager（可选，便于直接调试/Webhook 回调）
+    - name: alertmanager
+      port: 9093
+      targetPort: 9093
+    - name: vmalert
+      port: 8081
+      targetPort: 8429

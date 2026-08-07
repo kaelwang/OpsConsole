@@ -1,0 +1,85 @@
+# 10-postgres.yaml
+# PostgreSQL 16 + RLS 多租户主库。StatefulSet 保证稳定的网络标识与独立 PVC。
+# 初始化脚本 schema.sql / seed.sql 通过 init-config 卷挂载进
+# /docker-entrypoint-initdb.d/（首次启动自动执行，已幂等）。
+#
+# 前置（一次性）：把仓库根的 schema.sql / seed.sql 做成 ConfigMap：
+#   kubectl -n opsconsole create configmap opsconsole-pg-init \
+#     --from-file=01-schema.sql=../../schema.sql \
+#     --from-file=02-seed.sql=../../seed.sql
+# （见 README.md 中的 make-init.sh 快捷脚本）
+apiVersion: v1
+kind: Service
+metadata:
+  name: opsconsole-postgres
+  namespace: opsconsole
+  labels: { app: opsconsole-postgres }
+spec:
+  selector: { app: opsconsole-postgres }
+  ports:
+    - port: 5432
+      targetPort: 5432
+  clusterIP: None   # Headless：StatefulSet 已用固定 DNS 名
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: opsconsole-postgres
+  namespace: opsconsole
+  labels: { app: opsconsole-postgres }
+spec:
+  serviceName: opsconsole-postgres
+  replicas: 1
+  selector:
+    matchLabels: { app: opsconsole-postgres }
+  template:
+    metadata:
+      labels: { app: opsconsole-postgres }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: "opsconsole"
+            - name: POSTGRES_USER
+              value: "postgres"
+            - name: POSTGRES_PASSWORD
+              # 与 opsconsole-secrets 里的 db-password 同源（db-url 也引用它）。
+              # 用 secretKeyRef 保证 PG 密码与后端 db-url 永远一致，不再手写。
+              valueFrom:
+                secretKeyRef:
+                  name: opsconsole-secrets
+                  key: db-password
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+              # Longhorn 卷根目录带 lost+found，initdb 要求目录为空会失败，
+              # 挂到子目录 pgdata/ 规避（卷内数据落在 <volume>/pgdata）。
+              subPath: pgdata
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-d", "opsconsole"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "250m", memory: "512Mi" }
+            limits:   { cpu: "1",    memory: "1Gi" }
+      volumes:
+        - name: init
+          configMap:
+            name: opsconsole-pg-init
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: opsconsole-longhorn
+        resources:
+          requests:
+            storage: 10Gi

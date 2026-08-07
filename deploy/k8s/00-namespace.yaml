@@ -1,0 +1,10 @@
+# 00-namespace.yaml
+# 所有 OpsConsole 组件（应用 + 自托管数据库）都部署在这个命名空间里。
+# 监控采集侧（vmagent / kube-state-metrics / node-exporter）使用独立的
+# opsconsole-monitoring 命名空间（见 monitoring/ 下的复用清单）。
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: opsconsole
+  labels:
+    app.kubernetes.io/part-of: opsconsole

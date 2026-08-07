@@ -10,10 +10,10 @@ export function formatThroughput(mbps: number): ThroughputDisplay {
     return { value: '0', unit: 'KB/s' };
   }
   if (mbps >= 1024) {
-    return { value: (mbps / 1024).toFixed(2), unit: 'GB/s' };
+    return { value: (mbps / 1024).toFixed(1), unit: 'GB/s' };
   }
   if (mbps >= 1) {
-    return { value: mbps.toFixed(2), unit: 'MB/s' };
+    return { value: mbps.toFixed(1), unit: 'MB/s' };
   }
   return { value: (mbps * 1024).toFixed(1), unit: 'KB/s' };
 }

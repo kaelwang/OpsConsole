@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import * as echarts from 'echarts';
 import type { EChartsOption } from 'echarts';
+import { hexToRgb } from '@/lib/color';
 
 /** 读取 CSS 变量解析后的实际颜色（使图表随 data-theme 变化） */
 export function cssVar(name: string, fallback = ''): string {
@@ -91,15 +92,6 @@ export function Sparkline({
     ],
   };
   return <ReactECharts option={option} height={height} />;
-}
-
-function hexToRgb(hex: string): string {
-  const h = hex.replace('#', '');
-  if (h.length !== 6) return '28,143,230';
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  return `${r},${g},${b}`;
 }
 
 /** 通用空态 */

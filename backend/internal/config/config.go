@@ -14,21 +14,31 @@ type Config struct {
 	GitLabBaseURL      string
 	GitLabToken        string
 	KubeconfigPath     string
+	AlertmanagerURL    string // OPS_ALERTMANAGER_URL — base URL of the Alertmanager API
+	// AlertmanagerConfigPath is the host path (shared with the alertmanager
+	// container) where the generated alertmanager.yml is written.
+	AlertmanagerConfigPath string
+	// VMAlertRulesPath is the host path (shared with the vmalert container)
+	// where the generated per-tenant vmalert rule file is written.
+	VMAlertRulesPath string
 }
 
 // Load reads configuration from the environment.
 func Load() *Config {
 	return &Config{
-		Port:               getenv("OPS_PORT", "8080"),
-		DatabaseURL:        os.Getenv("OPS_DATABASE_URL"),
-		RedisURL:           getenv("OPS_REDIS_URL", "redis://localhost:6379/0"),
-		JWTSecret:          getenv("OPS_JWT_SECRET", "dev-insecure-secret-change-me"),
-		VictoriaMetricsURL: os.Getenv("OPS_VICTORIAMETRICS_URL"),
-		VMAlertURL:         os.Getenv("OPS_VMALERT_URL"),
-		OpenSearchURL:      os.Getenv("OPS_OPENSEARCH_URL"),
-		GitLabBaseURL:      os.Getenv("OPS_GITLAB_BASE_URL"),
-		GitLabToken:        os.Getenv("OPS_GITLAB_TOKEN"),
-		KubeconfigPath:     getenv("OPS_KUBECONFIG", ""),
+		Port:                   getenv("OPS_PORT", "8080"),
+		DatabaseURL:            os.Getenv("OPS_DATABASE_URL"),
+		RedisURL:               getenv("OPS_REDIS_URL", "redis://localhost:6379/0"),
+		JWTSecret:              getenv("OPS_JWT_SECRET", "dev-insecure-secret-change-me"),
+		VictoriaMetricsURL:     os.Getenv("OPS_VICTORIAMETRICS_URL"),
+		VMAlertURL:             os.Getenv("OPS_VMALERT_URL"),
+		OpenSearchURL:          os.Getenv("OPS_OPENSEARCH_URL"),
+		GitLabBaseURL:          os.Getenv("OPS_GITLAB_BASE_URL"),
+		GitLabToken:            os.Getenv("OPS_GITLAB_TOKEN"),
+		KubeconfigPath:         getenv("OPS_KUBECONFIG", ""),
+		AlertmanagerURL:        os.Getenv("OPS_ALERTMANAGER_URL"),
+		AlertmanagerConfigPath: getenv("OPS_ALERTMANAGER_CONFIG", "./deploy/generated/alertmanager.yml"),
+		VMAlertRulesPath:       getenv("OPS_VMALERT_RULES", "./deploy/generated/vmalert-rules.yml"),
 	}
 }
 

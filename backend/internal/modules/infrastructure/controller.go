@@ -82,3 +82,21 @@ func (s *Service) PodsHandler(c *gin.Context) {
 	}
 	response.OK(c, pods)
 }
+
+// NodesHandler returns node resource pressure for a cluster.
+func (s *Service) NodesHandler(c *gin.Context) {
+	nodes, err := s.ListNodes(c.Request.Context(), tenant.TenantID(c.Request.Context()), c.Param("id"))
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			response.NotFound(c, "cluster not found")
+			return
+		}
+		if errors.Is(err, ErrK8sUnavailable) {
+			response.Upstream(c, "kubernetes client not available in this mode")
+			return
+		}
+		response.Upstream(c, "failed to list nodes")
+		return
+	}
+	response.OK(c, nodes)
+}

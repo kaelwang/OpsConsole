@@ -15,6 +15,10 @@
 # ---- build stage ----
 FROM golang:1.22-alpine AS builder
 
+# 允许通过 --build-arg GOPROXY=... 覆盖 Go 模块代理（受限网络下可指向可达镜像源）。
+ARG GOPROXY=https://proxy.golang.org,direct
+ENV GOPROXY=$GOPROXY
+
 # git for module fetch; ca-certificates for HTTPS to external services during build
 RUN apk add --no-cache git ca-certificates
 

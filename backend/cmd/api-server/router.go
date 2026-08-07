@@ -62,6 +62,8 @@ func buildRouter(
 	m.POST("/notifications", rbac.RequirePermission("monitoring", "write", auditSvc), monSvc.CreateNotifHandler)
 	m.DELETE("/notifications/:id", rbac.RequirePermission("monitoring", "write", auditSvc), monSvc.DeleteNotifHandler)
 	m.GET("/alerts", rbac.RequirePermission("monitoring", "read", auditSvc), monSvc.ListAlertsHandler)
+	m.GET("/nodes", rbac.RequirePermission("monitoring", "read", auditSvc), monSvc.NodesHandler)
+	m.POST("/alerting/sync", rbac.RequirePermission("monitoring", "write", auditSvc), monSvc.SyncAlertingHandler)
 
 	// Logging.
 	l := secured.Group("/logging")
@@ -82,6 +84,7 @@ func buildRouter(
 	i.POST("/clusters", rbac.RequirePermission("infrastructure", "write", auditSvc), infraSvc.CreateClusterHandler)
 	i.GET("/hosts", rbac.RequirePermission("infrastructure", "read", auditSvc), infraSvc.ListHostsHandler)
 	i.GET("/clusters/:id/pods", rbac.RequirePermission("infrastructure", "read", auditSvc), infraSvc.PodsHandler)
+	i.GET("/clusters/:id/nodes", rbac.RequirePermission("infrastructure", "read", auditSvc), infraSvc.NodesHandler)
 	i.GET("/clusters/:id/exec", rbac.RequirePermission("infrastructure", "write", auditSvc), infraSvc.ExecHandler)
 
 	// Serve the embedded frontend SPA (history-API fallback) for all routes

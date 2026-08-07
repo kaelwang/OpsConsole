@@ -48,7 +48,7 @@ export function MetricGrid({ rangeSec = 86400 }: { rangeSec?: number }) {
       const now = Math.floor(Date.now() / 1000);
       const step = Math.max(60, Math.round(rangeSec / 32));
       const results = await Promise.all(
-        METRICS.map((m) => queryMetrics(m.expr, String(step), now - rangeSec, now)),
+        METRICS.map((m) => queryMetrics({ expr: m.expr, step: String(step), start: now - rangeSec, end: now })),
       );
       return results.map(toValues);
     },

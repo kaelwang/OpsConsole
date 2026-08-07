@@ -1,0 +1,22 @@
+# 02-configmap.yaml
+# 非敏感的运行时配置（内部服务地址、端口、生成的告警配置路径）。
+# 这些值在集群内是固定的，改了名字要同步改下面的 Service 名。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opsconsole-config
+  namespace: opsconsole
+data:
+  OPS_PORT: "8080"
+  # 后端内嵌前端 + 提供 /api/v1，监听此端口。
+  OPS_VICTORIAMETRICS_URL: "http://opsconsole-victoriametrics:8428"
+  # 注意：vmalert / alertmanager 以 sidecar 形式与本容器同 Pod 运行，
+  # 因此用 localhost 直连，无需经过 Service。
+  OPS_VMALERT_URL: "http://localhost:8429"
+  OPS_ALERTMANAGER_URL: "http://localhost:9093"
+  # 这两个路径指向 Pod 内共享的 emptyDir 卷 /generated，
+  # 后端启动时把动态生成的 alertmanager.yml / vmalert-rules.yml 写到这里，
+  # alertmanager / vmalert sidecar 再从这个路径读取。
+  OPS_ALERTMANAGER_CONFIG: "/generated/alertmanager.yml"
+  OPS_VMALERT_RULES: "/generated/vmalert-rules.yml"
+  # 不设置 OPS_KUBECONFIG：集群通过 UI 粘贴 kubeconfig 接入（A2 特性）。

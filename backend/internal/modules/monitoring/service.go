@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,11 +24,24 @@ type Service struct {
 	vm     *victoriametrics.Client
 	va     *vmalert.Client
 	audit  audit.Sink
+	cm     *ConfigManager
 }
 
-// NewService builds a monitoring service.
-func NewService(alerts AlertRuleRepository, notifs NotificationRepository, vm *victoriametrics.Client, va *vmalert.Client, audit audit.Sink) *Service {
-	return &Service{alerts: alerts, notifs: notifs, vm: vm, va: va, audit: audit}
+// NewService builds a monitoring service. cm may be nil when the alerting
+// notification pipeline is not configured; in that case channel/rule changes
+// simply skip the config regeneration step.
+func NewService(alerts AlertRuleRepository, notifs NotificationRepository, vm *victoriametrics.Client, va *vmalert.Client, audit audit.Sink, cm *ConfigManager) *Service {
+	return &Service{alerts: alerts, notifs: notifs, vm: vm, va: va, audit: audit, cm: cm}
+}
+
+// syncConfig regenerates alertmanager/vmalert config after a change. Failures
+// are returned to the caller so the operation surfaces them, but a nil cm (no
+// alerting pipeline) is a no-op.
+func (s *Service) syncConfig(ctx context.Context) error {
+	if s.cm == nil {
+		return nil
+	}
+	return s.cm.Sync(ctx)
 }
 
 // ListActiveAlerts returns the active alert events evaluated by vmalert.
@@ -52,6 +66,7 @@ func (s *Service) ListActiveAlerts(ctx context.Context) ([]model.AlertEvent, err
 		out = append(out, model.AlertEvent{
 			ID:       a.ID,
 			RuleID:   a.RuleID,
+			GroupID:  a.GroupID,
 			Severity: severity,
 			Status:   "firing",
 			FiredAt:  a.ActiveAt.Format(time.RFC3339),
@@ -63,15 +78,59 @@ func (s *Service) ListActiveAlerts(ctx context.Context) ([]model.AlertEvent, err
 }
 
 // Query runs a PromQL query. When step is provided it performs a range query
-// over [start, end]; otherwise it returns the instant vector.
-func (s *Service) Query(ctx context.Context, expr, step, start, end string) (json.RawMessage, error) {
+// over [start, end]; otherwise it returns the instant vector. filters is an
+// optional label_filters expression forwarded to VictoriaMetrics.
+func (s *Service) Query(ctx context.Context, expr, step, start, end, filters string) (json.RawMessage, error) {
 	if s.vm == nil {
 		return nil, ErrUpstreamUnavailable
 	}
 	if step == "" {
-		return s.vm.Query(ctx, expr)
+		return s.vm.Query(ctx, expr, filters)
 	}
-	return s.vm.QueryRange(ctx, expr, step, start, end)
+	return s.vm.QueryRange(ctx, expr, step, start, end, filters)
+}
+
+// ListNodes returns the distinct node identifiers currently scraped by the
+// node_exporter job, taken from the "node" label (falling back to "instance").
+func (s *Service) ListNodes(ctx context.Context) ([]string, error) {
+	if s.vm == nil {
+		return nil, ErrUpstreamUnavailable
+	}
+	// 注意：节点名取自 node-exporter 抓取任务的 "node" 标签（node-exporter job 通过
+	// Pod SD 给每个目标打了 node 标签）。第一个监控版本写成了 job="node"，但 vmagent 里
+	// 没有这个 job 名，导致 ListNodes 返回空 → 前端"节点在线率 · 0 节点"。
+	raw, err := s.vm.Query(ctx, `up{job="node-exporter"}`, "")
+	if err != nil {
+		return nil, err
+	}
+	var resp struct {
+		Data struct {
+			Result []struct {
+				Metric map[string]string `json:"metric"`
+			} `json:"result"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return nil, err
+	}
+	seen := make(map[string]struct{}, len(resp.Data.Result))
+	out := make([]string, 0, len(resp.Data.Result))
+	for _, r := range resp.Data.Result {
+		name := r.Metric["node"]
+		if name == "" {
+			name = r.Metric["instance"]
+		}
+		if name == "" {
+			continue
+		}
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out, nil
 }
 
 // ListAlertRules returns the tenant alert rules.
@@ -79,8 +138,9 @@ func (s *Service) ListAlertRules(ctx context.Context, tenantID string) ([]model.
 	return s.alerts.List(ctx, tenantID)
 }
 
-// CreateAlertRule persists a new alert rule and records the action.
-func (s *Service) CreateAlertRule(ctx context.Context, tenantID, name, expr, severity string, forSeconds int) (*model.AlertRule, error) {
+// CreateAlertRule persists a new alert rule and records the action. channelIDs
+// binds the rule to notification channels so alerts are routed to them.
+func (s *Service) CreateAlertRule(ctx context.Context, tenantID, name, expr, severity string, forSeconds int, channelIDs []string) (*model.AlertRule, error) {
 	r := &model.AlertRule{
 		ID:         uuid.NewString(),
 		TenantID:   tenantID,
@@ -88,6 +148,7 @@ func (s *Service) CreateAlertRule(ctx context.Context, tenantID, name, expr, sev
 		Expr:       expr,
 		ForSeconds: forSeconds,
 		Severity:   severity,
+		ChannelIDs: channelIDs,
 		CreatedAt:  time.Now(),
 	}
 	if err := s.alerts.Create(ctx, *r); err != nil {
@@ -97,6 +158,10 @@ func (s *Service) CreateAlertRule(ctx context.Context, tenantID, name, expr, sev
 		_ = s.audit.Record(ctx, model.AuditLog{
 			TenantID: tenantID, Action: "write", Resource: "monitoring", Detail: "create alert rule " + name,
 		})
+	}
+	// Regenerate alerting config so the new rule's channels take effect.
+	if err := s.syncConfig(ctx); err != nil {
+		return r, err
 	}
 	return r, nil
 }
@@ -123,6 +188,10 @@ func (s *Service) CreateNotification(ctx context.Context, tenantID, kind, target
 			TenantID: tenantID, Action: "write", Resource: "monitoring", Detail: "create notification " + target,
 		})
 	}
+	// Regenerate alerting config so the new channel is wired into routing.
+	if err := s.syncConfig(ctx); err != nil {
+		return n, err
+	}
 	return n, nil
 }
 
@@ -135,6 +204,10 @@ func (s *Service) DeleteNotification(ctx context.Context, tenantID, id string) e
 		_ = s.audit.Record(ctx, model.AuditLog{
 			TenantID: tenantID, Action: "delete", Resource: "monitoring", Detail: "delete notification " + id,
 		})
+	}
+	// Regenerate alerting config so the removed channel drops out of routing.
+	if err := s.syncConfig(ctx); err != nil {
+		return err
 	}
 	return nil
 }

@@ -1,6 +1,6 @@
 import { API_BASE } from '../config';
 import { get, post } from '../http';
-import type { Cluster, ClusterCreateRequest, Host, Pod } from '@/types/api';
+import type { Cluster, ClusterCreateRequest, Host, Node, Pod } from '@/types/api';
 
 /** GET /infrastructure/clusters */
 export async function listClusters(): Promise<Cluster[]> {
@@ -23,6 +23,11 @@ export async function listPods(
 /** GET /infrastructure/hosts */
 export async function listHosts(): Promise<Host[]> {
   return get<Host[]>('/infrastructure/hosts');
+}
+
+/** GET /infrastructure/clusters/{id}/nodes — 真实节点资源压力（Allocatable 占比 + 压力条件） */
+export async function listNodes(clusterId: string): Promise<Node[]> {
+  return get<Node[]>(`/infrastructure/clusters/${clusterId}/nodes`);
 }
 
 /** 容器终端 WebSocket 地址 */

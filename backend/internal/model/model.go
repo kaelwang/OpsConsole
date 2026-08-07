@@ -115,6 +115,30 @@ type Pod struct {
 	Node      string `json:"node"`
 	Status    string `json:"status"`
 	Age       string `json:"age"`
+	// Cpu / Memory 为该 Pod 占用其所在节点可分配资源（Allocatable）的百分比（0-100）。
+	// metrics-server 不可用时为 nil，前端显示「—」。
+	Cpu      *float64 `json:"cpu,omitempty"`
+	Memory   *float64 `json:"memory,omitempty"`
+	Restarts int32    `json:"restarts"`
+}
+
+// Node 为真实 Kubernetes 节点的资源压力视图。CPU/Memory 百分比为使用量占
+// Allocatable 的比例（0-100），metrics-server 不可用时为 nil，前端显示「—」。
+type Node struct {
+	Name          string   `json:"name"`
+	Status        string   `json:"status"` // Ready / NotReady
+	Age           string   `json:"age"`
+	CPUPercent    *float64 `json:"cpuPercent,omitempty"`
+	MemoryPercent *float64 `json:"memoryPercent,omitempty"`
+	CPUUsed       string   `json:"cpuUsed,omitempty"`
+	CPUTotal      string   `json:"cpuTotal,omitempty"`
+	MemUsed       string   `json:"memUsed,omitempty"`
+	MemTotal      string   `json:"memTotal,omitempty"`
+	DiskPressure  bool     `json:"diskPressure"`
+	MemPressure   bool     `json:"memPressure"`
+	PIDPressure   bool     `json:"pidPressure"`
+	PodCount      int      `json:"podCount"`
+	PodCapacity   int      `json:"podCapacity"`
 }
 
 type Pipeline struct {
@@ -135,6 +159,7 @@ type LogEntry struct {
 type AlertEvent struct {
 	ID       string            `json:"id"`
 	RuleID   string            `json:"ruleId"`
+	GroupID  string            `json:"groupId"`
 	Severity string            `json:"severity"`
 	Status   string            `json:"status"`
 	FiredAt  string            `json:"firedAt"`

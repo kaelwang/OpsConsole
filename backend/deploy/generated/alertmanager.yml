@@ -1,0 +1,25 @@
+global:
+    resolve_timeout: 5m
+    smtp_from: opsconsole@localhost
+    smtp_smarthost: localhost:25
+route:
+    receiver: noop
+    group_by:
+        - alertname
+    group_wait: 0s
+    group_interval: 1m
+    repeat_interval: 1h
+    routes:
+        - matchers:
+            - channels=~".*77777777-7777-7777-7777-777777777777.*"
+          receiver: chan-77777777-7777-7777-7777-777777777777
+          continue: true
+receivers:
+    - name: noop
+      webhook_configs:
+        - url: http://127.0.0.1:9093/noop
+          send_resolved: true
+    - name: chan-77777777-7777-7777-7777-777777777777
+      email_configs:
+        - smarthost: localhost:25
+          to: oncall@corp.com

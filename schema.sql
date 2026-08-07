@@ -171,8 +171,8 @@ CREATE TABLE audit_logs (
   result          text NOT NULL DEFAULT 'success',        -- 兼容历史字段
   created_at      timestamptz NOT NULL DEFAULT now()
 );
--- SPEC §6 索引：IDX(tenant_id, actor_id, created_at)；复合索引前缀已覆盖 tenant_id 单列查询
-CREATE INDEX idx_audit_logs_lookup ON audit_logs(tenant_id, actor_id, created_at DESC);
+-- SPEC §6 索引：IDX(tenant_id, user_id, created_at)；复合索引前缀已覆盖 tenant_id 单列查询
+CREATE INDEX idx_audit_logs_lookup ON audit_logs(tenant_id, user_id, created_at DESC);
 
 -- =============================================================================
 -- RLS：租户强制隔离

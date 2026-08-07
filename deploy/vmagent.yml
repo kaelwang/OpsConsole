@@ -5,9 +5,14 @@ global:
 
 scrape_configs:
   # 主机指标（CPU / 内存 / 磁盘 / 网络），由 node_exporter 暴露
+  # 每个 target 必须打 node/cluster 标签，作为多节点展示与过滤的维度
+  # （多节点部署时，为每台主机添加一条 target 并赋予唯一 node 标签）。
   - job_name: node
     static_configs:
       - targets: ['opsconsole-nodeexporter:9100']
+        labels:
+          node: opsconsole-nodeexporter
+          cluster: local
 
   # VictoriaMetrics 自监控
   - job_name: victoriametrics

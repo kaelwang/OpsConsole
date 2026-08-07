@@ -40,7 +40,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { StatusTag, podStatusVar, usageVar } from '@/components/status';
 import { ClusterTopology } from './ClusterTopology';
 import { TerminalModal } from './TerminalModal';
-import { listClusters, listPods, listHosts, registerCluster } from '@/services/api/infrastructure';
+import { listClusters, listPods, listNodes, registerCluster } from '@/services/api/infrastructure';
 import { useScopeStore } from '@/stores/scope';
 import type { Pod } from '@/types/api';
 
@@ -61,7 +61,7 @@ export function ClustersPage() {
 
   const clustersQ = useQuery({ queryKey: ['clusters'], queryFn: listClusters });
   const podsQ = useQuery({ queryKey: ['pods', activeCluster], queryFn: () => listPods(activeCluster), enabled: !!activeCluster });
-  const hostsQ = useQuery({ queryKey: ['hosts'], queryFn: listHosts });
+  const nodesQ = useQuery({ queryKey: ['nodes', activeCluster], queryFn: () => listNodes(activeCluster), enabled: !!activeCluster });
 
   // 若当前作用域中的集群不存在（或为空），自动选中第一个真实集群
   useEffect(() => {
@@ -73,7 +73,7 @@ export function ClustersPage() {
 
   const clusters = clustersQ.data ?? [];
   const pods = podsQ.data ?? [];
-  const hosts = hostsQ.data ?? [];
+  const nodes = nodesQ.data ?? [];
 
   const treeData = useMemo(() => {
     const nsMap = new Map<string, Pod[]>();
@@ -129,7 +129,7 @@ export function ClustersPage() {
               options={clusters.map((c) => ({ value: c.id, label: c.name }))}
               loading={clustersQ.isLoading}
             />
-            <Button icon={<RefreshCw size={16} />} onClick={() => { podsQ.refetch(); hostsQ.refetch(); }}>刷新</Button>
+            <Button icon={<RefreshCw size={16} />} onClick={() => { podsQ.refetch(); nodesQ.refetch(); }}>刷新</Button>
             <Button type="primary" icon={<Plus size={16} />} onClick={() => setRegOpen(true)}>注册集群</Button>
           </Space>
         }
@@ -195,20 +195,60 @@ export function ClustersPage() {
 
           <Card
             title={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Cpu size={18} style={{ color: 'var(--muted)' }} /> 节点资源压力</span>}
+            extra={nodesQ.isFetching ? <RefreshCw size={14} className="spin" /> : null}
             styles={{ body: { padding: 'var(--space-4)' } }}
             style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', marginTop: 'var(--space-4)' }}
           >
-            <Row gutter={[24, 16]}>
-              {hosts.length === 0 && <Col span={24}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无主机" /></Col>}
-              {hosts.map((h) => (
-                <Col xs={24} md={12} key={h.id}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <HardDrive size={16} style={{ color: 'var(--muted)' }} />
-                    <span className="mono" style={{ fontSize: 'var(--font-size-sm)', color: 'var(--fg)' }}>{h.name || h.ip}</span>
-                    <span className="mono" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--meta)' }}>{h.ip}</span>
-                    <span style={{ color: 'var(--meta)', fontSize: 'var(--font-size-xs)', marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <HeartPulse size={12} style={{ color: h.status === 'online' ? 'var(--success)' : 'var(--danger)' }} /> {h.os || '—'} · {h.status}
-                    </span>
+            <Row gutter={[24, 20]}>
+              {nodesQ.isLoading && <Col span={24}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="加载节点…" /></Col>}
+              {!nodesQ.isLoading && nodes.length === 0 && (
+                <Col span={24}>
+                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无节点（或未配置集群 kubeconfig）" />
+                </Col>
+              )}
+              {nodes.map((n) => (
+                <Col xs={24} md={12} key={n.name}>
+                  <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 'var(--space-2)' }}>
+                      <HardDrive size={16} style={{ color: 'var(--muted)' }} />
+                      <span className="mono" style={{ fontSize: 'var(--font-size-sm)', color: 'var(--fg)' }}>{n.name}</span>
+                      <StatusTag color={n.status === 'Ready' ? 'var(--success)' : 'var(--danger)'}>{n.status}</StatusTag>
+                      <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 4 }}>
+                        {n.diskPressure && <Tag color="warning" style={{ fontSize: 10 }}>Disk</Tag>}
+                        {n.memPressure && <Tag color="error" style={{ fontSize: 10 }}>Mem</Tag>}
+                        {n.pidPressure && <Tag color="warning" style={{ fontSize: 10 }}>PID</Tag>}
+                      </span>
+                    </div>
+                    <div style={{ marginBottom: 4 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-size-xs)', color: 'var(--meta)' }}>
+                        <span>CPU {n.cpuPercent != null ? `${n.cpuPercent.toFixed(0)}%` : '—'}</span>
+                        <span className="mono">{n.cpuUsed ?? '—'} / {n.cpuTotal ?? '—'}</span>
+                      </div>
+                      <Progress
+                        percent={n.cpuPercent ?? 0}
+                        showInfo={false}
+                        size="small"
+                        strokeColor={usageVar(n.cpuPercent ?? 0)}
+                        status={n.cpuPercent == null ? 'normal' : 'active'}
+                      />
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-size-xs)', color: 'var(--meta)' }}>
+                        <span>内存 {n.memoryPercent != null ? `${n.memoryPercent.toFixed(0)}%` : '—'}</span>
+                        <span className="mono">{n.memUsed ?? '—'} / {n.memTotal ?? '—'}</span>
+                      </div>
+                      <Progress
+                        percent={n.memoryPercent ?? 0}
+                        showInfo={false}
+                        size="small"
+                        strokeColor={usageVar(n.memoryPercent ?? 0)}
+                        status={n.memoryPercent == null ? 'normal' : 'active'}
+                      />
+                    </div>
+                    <div style={{ marginTop: 'var(--space-2)', fontSize: 'var(--font-size-xs)', color: 'var(--meta)', display: 'flex', gap: 12 }}>
+                      <span>Pod {n.podCount}/{n.podCapacity}</span>
+                      <span>{n.age}</span>
+                    </div>
                   </div>
                 </Col>
               ))}
@@ -265,8 +305,17 @@ export function ClustersPage() {
           <Form.Item name="provider" label="提供商">
             <Input placeholder="self-hosted / tke / eks" />
           </Form.Item>
-          <Form.Item name="kubeconfig" label="kubeconfig 引用">
-            <Input className="mono" placeholder="secret://vault/k8s/prod-sh" />
+          <Form.Item
+            name="kubeconfig"
+            label="kubeconfig (YAML)"
+            tooltip="直接粘贴 kubeconfig 内容；留空则使用服务端全局 OPS_KUBECONFIG_PATH"
+          >
+            <Input.TextArea
+              className="mono"
+              rows={10}
+              placeholder={'apiVersion: v1\nkind: Config\nclusters:\n- name: ...'}
+              style={{ fontSize: 'var(--font-size-xs)' }}
+            />
           </Form.Item>
         </Form>
       </Modal>

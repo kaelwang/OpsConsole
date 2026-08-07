@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Button, Drawer, Empty, Input, Segmented, Select, Switch, Space, Tooltip } from 'antd';
 import {
@@ -71,13 +72,25 @@ function exportCsv(logs: LogEntry[]) {
 }
 
 export function LogsPage() {
-  const [q, setQ] = useState('');
-  const [level, setLevel] = useState<LogLevel | 'all'>('all');
-  const [service, setService] = useState<string | undefined>();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // 允许通过 URL 参数 ?q=&level=&service= 预填查询（监控/告警页跳转过来时用到）。
+  const [q, setQ] = useState(searchParams.get('q') ?? '');
+  const [level, setLevel] = useState<LogLevel | 'all'>(((searchParams.get('level') as LogLevel) || 'all') as LogLevel | 'all');
+  const [service, setService] = useState<string | undefined>(searchParams.get('service') || undefined);
   const [following, setFollowing] = useState(true);
   const [paused, setPaused] = useState(false);
   const [selected, setSelected] = useState<LogEntry | null>(null);
   const streamRef = useRef<HTMLDivElement>(null);
+
+  // 把当前筛选条件同步回 URL，使日志视图可分享/可后退。
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (level !== 'all') params.set('level', level);
+    if (service) params.set('service', service);
+    setSearchParams(params, { replace: true });
+  }, [q, level, service, setSearchParams]);
 
   const baseQ = useQuery({
     queryKey: ['logs', q, level, service],

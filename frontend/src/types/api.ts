@@ -64,6 +64,7 @@ export interface AlertRuleCreateRequest {
 export interface AlertEvent {
   id: string;
   ruleId: string;
+  groupId?: string;
   severity: AlertSeverity;
   status: AlertStatus;
   firedAt: string;
@@ -158,6 +159,24 @@ export interface Host {
   os: string;
   status: HostStatus;
   createdAt: string;
+}
+
+/** 真实 K8s 节点的资源压力视图（CPU/内存为占 Allocatable 的百分比）。 */
+export interface Node {
+  name: string;
+  status: string; // Ready / NotReady
+  age: string;
+  cpuPercent?: number;
+  memoryPercent?: number;
+  cpuUsed?: string;
+  cpuTotal?: string;
+  memUsed?: string;
+  memTotal?: string;
+  diskPressure?: boolean;
+  memPressure?: boolean;
+  pidPressure?: boolean;
+  podCount: number;
+  podCapacity: number;
 }
 
 /* ---------------- 审计 ---------------- */

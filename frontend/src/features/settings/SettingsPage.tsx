@@ -19,15 +19,9 @@ import { useThemeStore, type ThemeMode } from '@/stores/theme';
 import { useAuthStore } from '@/stores/auth';
 import { listChannels, createChannel, deleteChannel } from '@/services/api/monitoring';
 import { listClusters, registerCluster } from '@/services/api/infrastructure';
+import { useSearchParams } from 'react-router-dom';
 import type { ChannelType } from '@/types/api';
-
-const CHANNEL_LABEL: Record<ChannelType, string> = {
-  email: '邮件',
-  webhook: 'Webhook',
-  wecom: '企业微信',
-  dingtalk: '钉钉',
-  feishu: '飞书',
-};
+import { CHANNEL_LABEL } from '@/lib/channel';
 
 export function SettingsPage() {
   const { message } = App.useApp();
@@ -35,7 +29,9 @@ export function SettingsPage() {
   const { mode, setMode } = useThemeStore();
   const email = useAuthStore((s) => s.email);
 
-  const [tab, setTab] = useState('appearance');
+  const [params, setParams] = useSearchParams();
+  const tab = params.get('tab') ?? 'appearance';
+  const setTab = (key: string) => setParams({ tab: key });
   const [chanOpen, setChanOpen] = useState(false);
   const [clusterOpen, setClusterOpen] = useState(false);
 
@@ -76,7 +72,7 @@ export function SettingsPage() {
           styles={{ body: { padding: 'var(--space-2)' } }}
           style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', height: 'fit-content' }}
         >
-          <Menu mode="inline" selectedKeys={[tab]} items={menuItems} onClick={({ key }) => setTab(key)} style={{ background: 'transparent', borderInlineEnd: 'none' }} />
+          <Menu mode="inline" selectedKeys={[tab]} items={menuItems} onClick={({ key }) => setTab(key as string)} style={{ background: 'transparent', borderInlineEnd: 'none' }} />
         </Card>
 
         <Card

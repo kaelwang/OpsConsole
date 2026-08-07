@@ -65,14 +65,12 @@ services:
     networks: [opsconsole-net]
 
   # ---------------- OpenSearch 2.17（日志全文检索 + analysis-ik 中文分词） ----------------
-  # 镜像说明：使用社区预构建、已内置 analysis-ik 中文分词插件的 OpenSearch 2.17 镜像。
-  #   若该镜像在目标环境不可用，请改为官方基础镜像并手动安装 IK 插件：
-  #     image: opensearch-project/opensearch:2.17.0
+  #     image: opensearchproject/opensearch:2.17.0
   #     启动后执行：
   #       docker exec opsconsole-os bin/opensearch-plugin install --batch \
   #         https://github.com/infinilabs/analysis-ik/releases/download/v2.17.0/analysis-ik-2.17.0.zip
   opensearch:
-    image: medcl/opensearch-ik:2.17.0
+    image: opensearchproject/opensearch:2.17.0
     container_name: opsconsole-os
     environment:
       discovery.type: single-node
@@ -130,21 +128,42 @@ services:
 
   # ---------------- vmalert v1.101（评估告警规则，数据源 VictoriaMetrics） ----------------
   # 活跃告警通过 /api/v1/alerts 暴露，由后端 monitoring 模块透传给前端。
+  # 需配置真实 notifier（alertmanager），否则该接口返回 503。
+  # 第二条 --rule 加载后端按租户动态生成的规则文件（含 channel_ids 标签）。
   vmalert:
     image: victoriametrics/vmalert:v1.101.0
     container_name: opsconsole-vmalert
     depends_on:
       - victoriametrics
+      - alertmanager
     command:
       - "--datasource.url=http://opsconsole-vm:8428"
       - "--remoteWrite.url=http://opsconsole-vm:8428/api/v1/write"
       - "--rule=/etc/vmalert-rules.yml"
-      - "--notifier.blackhole"
+      - "--rule=/etc/vmalert-rules.generated.yml"
+      - "--notifier.url=http://opsconsole-alertmanager:9093"
       - "--httpListenAddr=:8080"
     volumes:
       - ./deploy/vmalert-rules.yml:/etc/vmalert-rules.yml:ro
+      - ./backend/deploy/generated/vmalert-rules.yml:/etc/vmalert-rules.generated.yml:ro
     ports:
       - "8081:8080"
+    networks: [opsconsole-net]
+
+  # ---------------- Alertmanager v0.27（接收 vmalert 告警，使 /api/v1/alerts 可用） ----------------
+  # 配置由后端按 notification_channels / alert_rules 动态生成（挂载 ./backend/deploy/generated）。
+  # v0.27 默认开启 /-/reload 生命周期接口，后端在渠道/规则变更后 POST 该接口即可热加载，无需重启容器。
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: opsconsole-alertmanager
+    command:
+      - "--config.file=/etc/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./backend/deploy/generated/alertmanager.yml:/etc/alertmanager.yml:ro
+      - am-data:/alertmanager
     networks: [opsconsole-net]
 
 volumes:
@@ -152,6 +171,7 @@ volumes:
   redis-data:
   vm-data:
   os-data:
+  am-data:
 
 networks:
   opsconsole-net:

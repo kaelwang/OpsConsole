@@ -1,0 +1,18 @@
+# Alertmanager 最小配置（开发单节点）
+# 仅作为 vmalert 的 notifier 接收端，使 vmalert /api/v1/alerts 接口可用。
+# 告警经 noop receiver 丢弃，不对外发送。
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: "noop"
+  group_by: ["alertname"]
+  group_wait: 0s
+  group_interval: 1m
+  repeat_interval: 1h
+
+receivers:
+  - name: "noop"
+    webhook_configs:
+      - url: "http://127.0.0.1:9093/noop"
+        send_resolved: true

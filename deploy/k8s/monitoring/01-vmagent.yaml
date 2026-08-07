@@ -1,0 +1,173 @@
+# 01-vmagent.yaml  (改编自 deploy/vmagent-k8s.yml)
+# 在集群内部署 vmagent，采集指标并 remoteWrite 到 OpsConsole 的 VictoriaMetrics
+# （集群内地址 opsconsole-victoriametrics.opsconsole.svc:8428）。
+# 采集：kubelet/cAdvisor、kube-state-metrics、node-exporter，保留
+# namespace/pod/node 标签，供前端「K8s 工作负载」面板按 namespace 过滤。
+#
+# 版本与本地验证保持一致：v1.101.0
+# 前置：先部署 00-k8s-monitoring.yaml
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: opsconsole-monitoring
+---
+# vmagent 抓取 kubelet 指标需经 API Server 代理，给它读 nodes/metrics 的权限。
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: opsconsole-vmagent
+  namespace: opsconsole-monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: opsconsole-vmagent
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "nodes/metrics", "nodes/proxy", "pods", "services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: opsconsole-vmagent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: opsconsole-vmagent
+subjects:
+  - kind: ServiceAccount
+    name: opsconsole-vmagent
+    namespace: opsconsole-monitoring
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vmagent-remote-write
+  namespace: opsconsole-monitoring
+type: Opaque
+stringData:
+  # 指向 OpsConsole 自己的 VictoriaMetrics（集群内 Service FQDN）
+  remoteWriteURL: "http://opsconsole-victoriametrics.opsconsole.svc:8428/api/v1/write"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vmagent-config
+  namespace: opsconsole-monitoring
+data:
+  # 集群名：所有指标会带 cluster=<这里的值> 标签，多集群时用来区分来源。
+  # 改这个键即可，无需重建镜像；vmagent 通过 CLUSTER_NAME 环境变量注入到
+  # --remoteWrite.label，单一来源、不再写死占位符。
+  cluster: "opsconsole"
+  scrape.yml: |
+    global:
+      scrape_interval: 15s
+    scrape_configs:
+      - job_name: kubernetes-cadvisor
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+          - source_labels: [__meta_kubernetes_node_name]
+            regex: (.+)
+            target_label: __metrics_path__
+            replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: node
+      - job_name: kube-state-metrics
+        static_configs:
+          - targets: ['kube-state-metrics.opsconsole-monitoring.svc:8080']
+      - job_name: kubernetes-nodes
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+          - source_labels: [__meta_kubernetes_node_name]
+            regex: (.+)
+            target_label: __metrics_path__
+            replacement: /api/v1/nodes/${1}/proxy/metrics
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: node
+      - job_name: node-exporter
+        # node-exporter 以 DaemonSet 运行（无独立 Service），用 pod 服务发现按标签抓取。
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: node-exporter
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_node_name]
+            target_label: node
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__address__]
+            regex: ([^:]+)(:9100)?
+            target_label: instance
+            replacement: $1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vmagent
+  namespace: opsconsole-monitoring
+  labels: { app: vmagent }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: vmagent }
+  template:
+    metadata:
+      labels: { app: vmagent }
+    spec:
+      serviceAccountName: opsconsole-vmagent
+      # 等 SA token 投影就绪再启动 vmagent，消除重启后 ~4 分钟内
+      # kube-apiserver SD 因 401 而抓不到 kubernetes-nodes / kubernetes-cadvisor 的窗口。
+      # 复用 vmagent 镜像（节点上已存在），无需额外分发镜像。
+      initContainers:
+        - name: wait-for-sa-token
+          image: victoriametrics/vmagent:v1.101.0
+          command: ['sh', '-c', 'until [ -f /var/run/secrets/kubernetes.io/serviceaccount/token ]; do echo "waiting for SA token..."; sleep 2; done']
+          securityContext:
+            runAsNonRoot: false
+            runAsUser: 0
+      containers:
+        - name: vmagent
+          image: victoriametrics/vmagent:v1.101.0
+          args:
+            - "--promscrape.config=/etc/vmagent/scrape.yml"
+            - "--remoteWrite.url=$(REMOTE_WRITE_URL)"
+            - "--remoteWrite.label=cluster=$(CLUSTER_NAME)"
+          env:
+            - name: REMOTE_WRITE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: vmagent-remote-write
+                  key: remoteWriteURL
+            - name: CLUSTER_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: vmagent-config
+                  key: cluster
+          volumeMounts:
+            - name: config
+              mountPath: /etc/vmagent
+          ports:
+            - containerPort: 8429
+      volumes:
+        - name: config
+          configMap:
+            name: vmagent-config

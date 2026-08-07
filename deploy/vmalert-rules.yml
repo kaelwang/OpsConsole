@@ -33,3 +33,11 @@ groups:
         annotations:
           summary: "节点离线"
           description: "实例 {{ $labels.instance }} 已超过 2 分钟无法抓取"
+      # 演示用：持续触发的告警，用于验证实时告警面板链路（可随时删除）。
+      - alert: DemoAlwaysFiring
+        expr: vector(1) > 0
+        labels:
+          severity: info
+        annotations:
+          summary: "演示告警：实时告警链路已连通"
+          description: "该告警由 vector(1) > 0 持续触发，用于验证实时告警面板，可随时删除。"

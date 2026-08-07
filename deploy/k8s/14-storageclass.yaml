@@ -1,0 +1,14 @@
+# 14-storageclass.yaml
+# 专用存储类：Longhorn，单副本（numberOfReplicas=1）。
+# 用途：验证/小集群直接用，避免 Longhorn 默认 3 副本在节点数/磁盘不足时
+#       调度失败（卷 faulted、Pod 卡 ContainerCreating）。
+# 生产如需高可用：把 numberOfReplicas 调到 3，并确保有 ≥3 个健康节点与足够磁盘。
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: opsconsole-longhorn
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+parameters:
+  numberOfReplicas: "1"

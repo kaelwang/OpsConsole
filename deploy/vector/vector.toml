@@ -1,0 +1,53 @@
+# =============================================================================
+# OpsConsole — Vector 日志采集示例配置
+# -----------------------------------------------------------------------------
+# 作用：把应用/容器日志采集进 OpenSearch 的 logs-<租户> 索引，
+#       供后端 /api/v1/logging/search 检索。
+#
+# 安装 Vector: https://vector.dev/docs/setup/installation/
+# 运行: vector --config deploy/vector/vector.toml
+#
+# 索引字段约定（后端 logging 模块会用到）:
+#   @timestamp  string  ISO8601 时间
+#   level       string  info|warn|error|debug ...
+#   service     string  服务名
+#   message     string  日志正文
+# =============================================================================
+
+# ---------- 1) 数据源：按需选一个或多个 ----------
+# (a) 尾随本地日志文件
+[sources.app_logs]
+type = "file"
+include = ["/var/log/opsconsole/*.log"]
+read_from = "beginning"
+
+# (b) 采集 Docker 容器 json-file 日志（需挂载 /var/lib/docker/containers）
+# [sources.docker_logs]
+# type = "docker"
+
+# ---------- 2) 解析：把文本行转成带字段的结构 ----------
+[transforms.parse]
+type = "remap"
+inputs = ["app_logs"]
+source = '''
+# 示例：从 "2026-07-29T13:00:00Z INFO api: db connection timeout" 解析出字段
+. |= parse_regex!(.message, r'^(?P<ts>\S+)\s+(?P<level>\w+)\s+(?P<service>\w+):\s*(?P<msg>.*)$') ?? .
+if exists(.ts) { .@timestamp = .ts }
+if exists(.msg) { .message = .msg }
+# 固定租户（生产可改用 .tenant 字段或向量源元数据动态设置）
+.tenant = "11111111-1111-1111-1111-111111111111"
+'''
+
+# ---------- 3) 输出：写入 OpenSearch ----------
+[sinks.opensearch]
+type = "elasticsearch"
+inputs = ["parse"]
+# 多租户：索引名带租户；单租户可写死 logs-default
+index = "logs-{{ tenant }}"
+endpoint = "http://localhost:9200"
+# 若 OpenSearch 开启了安全插件，填 user/password；开发单节点已 DISABLE_SECURITY_PLUGIN
+# auth.strategy = "basic"
+# auth.user = "admin"
+# auth.password = "admin"
+# 中文日志建议先在 OpenSearch 装 analysis-ik 插件再做全文检索
+bulk_indexing = false

@@ -1,0 +1,117 @@
+# vmagent-k8s.yml
+# 在 Kubernetes 集群内部署 vmagent，采集集群指标并 remoteWrite 到 OpsConsole 的
+# VictoriaMetrics。采集对象：
+#   - kubelet / cAdvisor  （容器级 CPU / 内存 / 重启，pod/namespace/node 标签）
+#   - kube-state-metrics  （kube_pod_status_restarts_total 等对象状态指标）
+#   - node-exporter       （节点级指标，可选 DaemonSet）
+# 保留 namespace / pod / node 标签，供前端「监控告警 → K8s 工作负载」面板按
+# namespace 过滤（QueryHandler 已支持 ?namespace= 标签过滤）。
+#
+# 前置：先部署 deploy/k8s-monitoring.yaml 拉起 kube-state-metrics / node-exporter。
+# 部署：kubectl apply -f vmagent-k8s.yml
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: opsconsole-monitoring
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vmagent-remote-write
+  namespace: opsconsole-monitoring
+type: Opaque
+stringData:
+  # 改为 OpsConsole VictoriaMetrics 的可写地址（从集群内可达，例如 Ingress / NodePort / 内网 LB）
+  remoteWriteURL: "http://opsconsole-vm:8428/api/v1/write"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vmagent-config
+  namespace: opsconsole-monitoring
+data:
+  scrape.yml: |
+    global:
+      scrape_interval: 15s
+      external_labels:
+        cluster: "<your-cluster-name>"
+    scrape_configs:
+      # cAdvisor 经 kubelet /metrics/cadvisor 暴露（容器级资源）
+      - job_name: kubernetes-cadvisor
+        scheme: https
+        metrics_path: /metrics/cadvisor
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: __param_node_name
+          - source_labels: [__param_node_name]
+            target_label: node
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+      # kube-state-metrics（Pod/Deploy/NS 状态，含 kube_pod_status_restarts_total）
+      - job_name: kube-state-metrics
+        static_configs:
+          - targets: ['kube-state-metrics.opsconsole-monitoring.svc:8080']
+      # 节点级指标（集群内另部署 node-exporter DaemonSet 时）
+      - job_name: kubernetes-nodes
+        scheme: https
+        metrics_path: /metrics
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: node
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vmagent
+  namespace: opsconsole-monitoring
+  labels:
+    app: vmagent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vmagent
+  template:
+    metadata:
+      labels:
+        app: vmagent
+    spec:
+      containers:
+        - name: vmagent
+          image: victoriametrics/vmagent:v1.106.0
+          args:
+            - "--promscrape.config=/etc/vmagent/scrape.yml"
+            - "--remoteWrite.url=$(REMOTE_WRITE_URL)"
+            - "--remoteWrite.label=cluster=<your-cluster-name>"
+          env:
+            - name: REMOTE_WRITE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: vmagent-remote-write
+                  key: remoteWriteURL
+          volumeMounts:
+            - name: config
+              mountPath: /etc/vmagent
+          ports:
+            - containerPort: 8429
+      volumes:
+        - name: config
+          configMap:
+            name: vmagent-config

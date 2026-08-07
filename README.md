@@ -17,7 +17,7 @@ OpsConsole 是一个**自托管、统一 RBAC、薄而全**的运维控制台，
 | 能力域 | 功能 | 后端代理/数据来源 |
 |--------|------|-------------------|
 | 底座 | 统一登录 / RBAC / 审计 | 本地账号（PostgreSQL）+ JWT；审计落 PG |
-| 监控告警 | 指标查询 / 告警规则 / 通知 | VictoriaMetrics（PromQL 代理）|
+| 监控告警 | 指标查询 / 告警规则 / 通知 / 活跃告警 | VictoriaMetrics（PromQL 代理）+ vmalert + alertmanager（活跃告警经 vmalert `/api/v1/alerts` 透传）|
 | 日志分析 | 全文检索 / 实时流 | OpenSearch（_search 代理 + WebSocket tail）|
 | 部署 CI/CD | 流水线列表 / 触发 / 回滚 | GitLab REST v4 适配器 |
 | 主机 / K8s | 集群纳管 / Pod 查看 / exec | client-go v0.31（SA impersonation 透传 RBAC）|
@@ -41,7 +41,7 @@ OpsConsole 是一个**自托管、统一 RBAC、薄而全**的运维控制台，
 
 ### 2.1 一键拉起依赖（单节点）
 ```bash
-docker compose up -d            # 启动 pg / redis / victoriametrics / opensearch / node-exporter / vmagent / vmalert
+docker compose up -d            # 启动 pg / redis / victoriametrics / opensearch / node-exporter / vmagent / vmalert / alertmanager
 docker compose down             # 停止（保留数据卷）
 docker compose down -v          # 重置（清空数据）
 ```
@@ -181,7 +181,7 @@ GitLab CI 的 `argocd-sync` 任务仅触发一次 `argocd app sync`；常态由 
 | `OPS_REDIS_URL` | `redis://localhost:6379/0` | ConfigMap | 会话（refresh token 存储）。 |
 | `OPS_JWT_SECRET` | `dev-insecure-secret-change-me` | **Secret** | JWT 签名密钥，生产必须改为强随机。 |
 | `OPS_VICTORIAMETRICS_URL` | 空 | ConfigMap | 填后启用 `/monitoring/query`，否则返回 502。 |
-| `OPS_VMALERT_URL` | 空 | ConfigMap | 填后启用 `/monitoring/alerts`（vmalert 评估的活跃告警），否则返回 502。 |
+| `OPS_VMALERT_URL` | 空 | ConfigMap | 填后启用 `/monitoring/alerts`（vmalert 评估的活跃告警），否则返回 502。开发 compose 中 vmalert 容器映射宿主机 `8081`（容器内 `8080`），且必须配置真实 notifier（`alertmanager`），否则 vmalert `/api/v1/alerts` 返回 503。 |
 | `OPS_OPENSEARCH_URL` | 空 | ConfigMap | 填后启用 `/logging/search`、`/logging/tail`。 |
 | `OPS_GITLAB_BASE_URL` | 空 | ConfigMap | 与 Token 同填启用真实 GitLab CI/CD，否则 `/deployment/pipelines` 返回 502（cicd provider not configured）。 |
 | `OPS_GITLAB_TOKEN` | 空 | **Secret** | GitLab 访问令牌。 |
@@ -221,7 +221,8 @@ GitLab CI 的 `argocd-sync` 任务仅触发一次 `argocd app sync`；常态由 
 - **K8s 真实对接需 `OPS_KUBECONFIG`**：Pod 列表与容器 exec 依赖真实 kubeconfig，否则返回 502 并说明不可用。
 - **GitLab 真实对接需 `OPS_GITLAB_BASE_URL` + `OPS_GITLAB_TOKEN`**：否则 `/deployment/pipelines` 返回 502（cicd provider not configured），后端不伪造流水线。
 - **VM 高基数查询**：全量扫描可能超时；生产应配置查询超时 + recording rules + 每租户 QPS 上限（见 SPEC §11）。
-- **OpenSearch 中文分词**：需预装 analysis-ik 插件（开发 compose 已用 `medcl/opensearch-ik:2.17.0`）。
+- **OpenSearch 镜像**：开发 compose 现使用官方 `opensearchproject/opensearch:2.17.0`（标准 analyzer，未预装 IK 中文分词插件）；若需中文 IK 分词，启动后执行
+  `docker exec opsconsole-os bin/opensearch-plugin install --batch https://github.com/infinilabs/analysis-ik/releases/download/v2.17.0/analysis-ik-2.17.0.zip`。
 - **client-go 版本对齐**：必须 v0.31.x 对应 K8s 1.31，否则 informer/impersonation 报错。
 - **ArgoCD / Helm / K8s 版本**：请使用 Helm 3.15+、ArgoCD 2.12+、K8s 1.31，避免 API 不兼容。
 - **前端镜像耦合后端 Service 名**：前端 nginx 将 `/api` 代理到固定服务名 `opsconsole-backend`；
@@ -257,8 +258,9 @@ GitLab CI 的 `argocd-sync` 任务仅触发一次 `argocd app sync`；常态由 
 
 ## 8. 校验状态（如实声明）
 
-- 本环境**未执行** `docker build` / `helm install` / `kubectl apply` / `gitlab-ci` 实跑；
-  helm/kubectl/docker 在本沙箱均不可用。
+- 本环境已通过 Docker 实际部署并验证：依赖容器（pg / redis / victoriametrics / opensearch / alertmanager / vmagent / vmalert / node-exporter）
+  经 `docker compose up -d` 拉起，后端编译为 Linux 二进制本地运行；核心链路（登录 / RBAC / 监控查询 / 实时告警 / 日志检索）已冒烟通过。
+- `helm install` / `kubectl apply` / `gitlab-ci` 实跑仍需在具备 K8s/CI 的环境执行。
 - 已进行的校验（详见 `OPS_SELFCHECK.md`）：
   - 所有纯 YAML（`chart/values.yaml`、`chart/Chart.yaml`、`docker-compose.yml`、`.gitlab-ci.yml`）
     经受管 Python `yaml.safe_load` 校验语法通过。
@@ -301,3 +303,10 @@ GitLab CI 的 `argocd-sync` 任务仅触发一次 `argocd app sync`；常态由 
 ### 9.5 仍待打磨（真实模式已知差异）
 - `/rbac/memberships` 目前仅返回 `userId` / `role`，缺 `displayName` / `email`（需后端 join users 表才能显示成员名）。
 - 通知 / 审计等个别「创建类」接口字段仍可能存在语义差异，属后续真实模式打磨项；登录与主列表链路已打通。
+
+### 9.6 本次部署修复（本地环境）
+- **`schema.sql` 初始化失败**：`audit_logs` 索引误引用不存在的 `actor_id` 列（表定义列名为 `user_id`），导致 PG 容器初始化退出；已修正为 `user_id`。
+- **OpenSearch 补全**：开发 compose 镜像由 `medcl/opensearch-ik:2.17.0` 改为官方 `opensearchproject/opensearch:2.17.0`（更易获取、标准 analyzer）；
+  后端配置 `OPS_OPENSEARCH_URL=http://localhost:9200` 后 `/logging/search`、`/logging/tail` 正常可用（需预先创建 `logs-<tenantId>` 索引）。
+- **实时告警修复**：vmalert 原用 `-notifier.blackhole`，导致其 `/api/v1/alerts` 永远返回 503；新增 `alertmanager` 容器作为 notifier，
+  vmalert 指向 `http://opsconsole-alertmanager:9093`；后端 `OPS_VMALERT_URL` 修正为宿主机映射端口 `8081`。`/monitoring/alerts` 现可返回 firing 告警。

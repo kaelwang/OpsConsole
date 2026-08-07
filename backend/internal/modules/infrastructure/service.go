@@ -81,3 +81,19 @@ func (s *Service) ListPods(ctx context.Context, tenantID, clusterID, namespace s
 	}
 	return client.ListPods(ctx, namespace)
 }
+
+// ListNodes returns node resource pressure for a cluster via the Kubernetes client.
+func (s *Service) ListNodes(ctx context.Context, tenantID, clusterID string) ([]model.Node, error) {
+	cluster, err := s.clusters.Get(ctx, tenantID, clusterID)
+	if err != nil {
+		return nil, err
+	}
+	if s.factory == nil {
+		return nil, ErrK8sUnavailable
+	}
+	client, err := s.factory(*cluster)
+	if err != nil {
+		return nil, err
+	}
+	return client.ListNodes(ctx)
+}
